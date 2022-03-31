@@ -3,28 +3,48 @@
 # Add steps that analyze code, save the dist with the build record, publish to a PyPI-compatible index, and more:
 # https://docs.microsoft.com/azure/devops/pipelines/languages/python
 
-trigger:
-- main
+[build-system]
+requires = ["setuptools", "wheel", "numpy"]
+build-backend = "setuptools.build_meta"
 
-pool:
-  vmImage: ubuntu-latest
-strategy:
-  matrix:
-    Python37:
-      python.version: '3.7'
+[tool.coverage.paths]
+source = [
+    "lib",
+    "*/site-packages"
+]
 
-steps:
-- task: UsePythonVersion@0
-  inputs:
-    versionSpec: '$(python.version)'
-  displayName: 'Use Python $(python.version)'
+[tool.coverage.run]
+branch = true
+parallel = true
+source = [
+    "xrayutilities"
+]
 
-- script: |
-    python -m pip install --upgrade pip
-    pip install -r requirements.txt
-  displayName: 'Install dependencies'
-
-- script: |
-    pip install pytest pytest-azurepipelines
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = py{36,37,38,39,310},coverage
+distshare = {toxinidir}/dist
+[testenv]
+wheel = true
+allowlist_externals =
+    mv
+deps =
+    h5py
+    lmfit
+    matplotlib
+    numpy
+    scipy
     pytest
-  displayName: 'pytest'
+    pytest-cov
+    coverage[toml]
+commands =
+    pytest --cov --cov-config pyproject.toml --junitxml=.tox/junit.{envname}.xml --cov-report=xml:.tox/coverage.xml
+    mv .coverage .tox/.coverage.{envname}
+[testenv:coverage]
+commands =
+    coverage combine .tox/
+    coverage xml -i -o .tox/coverage.xml
+    coverage report -i
+    mv .coverage .tox/
+"""
