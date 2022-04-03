@@ -40,9 +40,9 @@ Step2: Press the configure parameters button and press Accept button at the end 
 Step3: Press Generate Training dataset button. This will generate the training and validation dataset for neural network
 Step4: Press Train Neural network button. This will start the training process and once finished will save the trained model.
 Step5: Press the Live prediction with IPF map to start the prediction on predefined experimental dataset. Example datafile is included in the examples folder.
-
+Step6: Once analyzed, the results can be saved using the save results button.
 
 In addition, all the above mentioned steps can be done without the GUI and are detailed in the lauetoolsnn\example_notebook_scripts folder.
 Jupyter notebook scripts are provided to run all the steps sequentially.
 
-
+The indexed orientation matrix is also written in ".ctf" format, which can then be openend with channel 5 Aztec or MTEX orientation analysis software to do post processing related to orientations.
