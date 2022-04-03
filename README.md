@@ -1,17 +1,18 @@
 # lauetoolsnn
 A feed-forward neural network (FFNN) model to predict the HKL in single/multi-grain/multi-phase Laue patterns with high efficiency and accuracy is introduced. 
 
+Version 3.0.38
 
 #### Requirements:  
 - Python3
 - pip
+- PyQt5
 - matplotlib
 - Keras
+- tensorflow
 - fast_histogram
 - numpy
 - h5py
-- tensorflow
-- PyQt5
 - scikit-learn
 - fabio
 - networkx
