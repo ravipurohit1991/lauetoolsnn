@@ -30,13 +30,16 @@ or can be compiled and installed locally via the setup.py file. Download the Git
 $ python setup.py install
 ```
 
+See procedure_usage_lauetoolsnn.pdf for installation and how to write the configuration file to be used with GUI.
+
 #### Example case
 Two example case studies are included in the lauetoolsnn\examples folder.
 Run the GUI by either launching directly from the terminal using the 'lauetoolsnn' command or by running it locally with python lauetoolsneuralnetwork.py command.
 
 First step is to load the config.txt from the example folder, it sets all the values of the GUI to the case study.
 In the GUI: 
-- Step1: File --> load config . Select the config file from the example directory.
+- Step1: File --> load config . Select the config file from the example directory. 
+- Step1a: If config file is not available, one can set parameters in the configure parameters window directly.
 - Step2: Press the configure parameters button and press Accept button at the end (the values are loaded from the config file).
 - Step3: Press Generate Training dataset button. This will generate the training and validation dataset for neural network.
 - Step4: Press Train Neural network button. This will start the training process and once finished will save the trained model.
