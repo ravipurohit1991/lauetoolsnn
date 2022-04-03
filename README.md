@@ -1,13 +1,48 @@
-# lauetoolsnn notebook scripts 
-In the github repository of the project example notebook scripts are included to build a neural network model for any crystal symmetry as described in this article.  These notebook scripts aims to provide a general tutorial into the complete flow of LaueNN method. 
+# lauetoolsnn
+A feed-forward neural network (FFNN) model to predict the HKL in single/multi-grain/multi-phase Laue patterns with high efficiency and accuracy is introduced. 
 
-## Step 1: Generation of training dataset script: https://github.com/ravipurohit1991/lauetoolsnn/blob/main/lauetoolsnn/example_notebook_scripts/Step1_Generation_dataset_LaueNN.ipynb
-This notebook script provides information on how the output hkl class of the neural network is build given any crystallographic symmetry. Once defined, the simulated Laue patterns training dataset is generated and saved. 
 
-## Step 2: Training a neural network: https://github.com/ravipurohit1991/lauetoolsnn/blob/main/lauetoolsnn/example_notebook_scripts/Step2_Training_LaueNN.ipynb
-This notebook give introduction to defining a neural network architecture. Since the input and output classes are already generated. It is possible to define another neural network architecture also, for example a 1D CNN model that takes in same input and output. Additionally another script is provided that helps the users to play with different hyper parameters of the model architecture to optimize it specifically for their case (Sub-step 2a: Optimize hyper parameters of neural network architecture: https://github.com/ravipurohit1991/lauetoolsnn/blob/main/lauetoolsnn/example_notebook_scripts/Step2a_Optimize_architecture_LaueNN.ipynb)
+#### Requirements:  
+- Python3
+- pip
+- matplotlib
+- Keras
+- fast_histogram
+- numpy
+- h5py
+- tensorflow
+- PyQt5
+- scikit-learn
+- fabio
+- networkx
+- scikit-image
+- tqdm
 
-## Step 3: verify the neural network prediction and indexation of Laue Patterns: https://github.com/ravipurohit1991/lauetoolsnn/blob/main/lauetoolsnn/example_notebook_scripts/Step3a_Generate_simulateLPforPrediction_LaueNN.ipynb
-This script describes the steps for predicting Laue spots hkl for a given input and also includes functions that reconstructs orientation matrix and indexes the crystal of the given dataset. A script to generate simulated Laue patterns for prediction is also provided. (Step 3a: Generation of simulated dataset for prediction: https://github.com/ravipurohit1991/lauetoolsnn/blob/main/lauetoolsnn/example_notebook_scripts/Step3_Prediction_LaueNN.ipynb)
-The scripts have default values that should allow any user to launch all the scripts in sequence to see the working flow of the method described in this article.
+#### Installation
+Lauetoolsnn can be installed either via PYPI usiing the following command in terminal
+``` bash
+$ pip install lauetoolsnn
+```
+
+or can be compiled and installed locally via the setup.py file. Download the Github repository and type the following in terminal.
+``` bash
+$ python setup.py install
+```
+
+#### Example case
+Two example case studies are included in the lauetoolsnn\examples folder.
+Run the GUI by either launching directly from the terminal using the 'lauetoolsnn' command or by running it locally with python lauetoolsneuralnetwork.py command.
+
+First step is to load the config.txt from the example folder, it sets all the values of the GUI to the case study.
+In the GUI: 
+Step1: File --> load config . Select the config file from the example directory
+Step2: Press the configure parameters button and press Accept button at the end (the values are loaded from the config file)
+Step3: Press Generate Training dataset button. This will generate the training and validation dataset for neural network
+Step4: Press Train Neural network button. This will start the training process and once finished will save the trained model.
+Step5: Press the Live prediction with IPF map to start the prediction on predefined experimental dataset. Example datafile is included in the examples folder.
+
+
+In addition, all the above mentioned steps can be done without the GUI and are detailed in the lauetoolsnn\example_notebook_scripts folder.
+Jupyter notebook scripts are provided to run all the steps sequentially.
+
 
