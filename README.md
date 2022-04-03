@@ -20,12 +20,12 @@ Version 3.0.38
 - tqdm
 
 #### Installation
-Lauetoolsnn can be installed either via PYPI usiing the following command in terminal
+Lauetoolsnn can be installed either via PYPI usiing the following command in terminal (this installs all dependencies automatically)
 ``` bash
 $ pip install lauetoolsnn
 ```
 
-or can be compiled and installed locally via the setup.py file. Download the Github repository and type the following in terminal.
+or can be compiled and installed locally via the setup.py file. Download the Github repository and type the following in terminal. In this case, the dependencies has to be installed manually. The latest version of each dependency works as of (01/04/2022).
 ``` bash
 $ python setup.py install
 ```
