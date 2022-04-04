@@ -9,7 +9,7 @@ March 2020
 __author__ = "Jean-Sebastien Micha, CRG-IF BM32 @ ESRF"
 
 # built-in modules
-import sys
+# import sys
 import os
 import copy
 import struct
@@ -20,30 +20,29 @@ try:
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore",category=FutureWarning)
         import fabio
-
     FABIO_EXISTS = True
 except ImportError:
-    # print("Missing fabio module. Please install it if you need open some tiff images "
-    #         "from the sCMOS camera")
     FABIO_EXISTS = False
 
 try:
     from libtiff import TIFF, libtiff_ctypes
-
     libtiff_ctypes.suppress_warnings()
     LIBTIFF_EXISTS = True
 except (ImportError, ValueError):
-    # print("Missing library libtiff, Please install: pylibtiff if you need open some tiff images")
     LIBTIFF_EXISTS = False
 
 try:
     from PIL import Image
-
     PIL_EXISTS = True
 except ImportError:
-    # print("Missing python module called PIL. Please install it if you need open some tiff "
-    #         "images from vhr camera")
     PIL_EXISTS = False
+    
+try:
+    import matplotlib.pyplot as plt
+    MLAB_EXISTS = True
+except ImportError:
+    MLAB_EXISTS = False
+    
 import numpy as np
 
 try:
@@ -548,7 +547,29 @@ def readCCDimage(filename, CCDLabel="MARCCD165", dirname=None, stackimageindex=-
             initframedim = tuple(initframedim)
         else:
             USE_RAW_METHOD = True
+    
+    elif MLAB_EXISTS:
+        if CCDLabel in ('MARCCD165', "EDF", "EIGER_4M", "EIGER_1M",
+                        "sCMOS", "sCMOS_fliplr", "sCMOS_fliplr_16M", "sCMOS_16M",
+                        "Rayonix MX170-HS", 'psl_weiwei', 'ImageStar_dia_2021'):
 
+            if verbose > 1:
+                print('----> Using matplotlib ... to open %s\n'%filename)
+            # warning import Image  # for well read of header only
+
+            if dirname is not None:
+                dataimage = plt.imread(os.path.join(dirname, filename))
+            else:
+                dataimage = plt.imread(filename)
+            framedim = dataimage.shape
+            # pythonic way to change immutable tuple...
+            initframedim = list(DictLT.dict_CCD[CCDLabel][0])
+            initframedim[0] = framedim[0]
+            initframedim[1] = framedim[1]
+            initframedim = tuple(initframedim)
+        else:
+            USE_RAW_METHOD = True
+    
     elif CCDLabel in ("EIGER_4Mstack", ):
 
         import tables as Tab
