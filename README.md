@@ -3,7 +3,7 @@ A feed-forward neural network (FFNN) model to predict the HKL in single/multi-gr
 
 Version 3.0.38
 
-#### Requirements:  
+#### Requirements: (latest version of each libraries accessed on 03/04/2022)  
 - Python3
 - pip
 - PyQt5
