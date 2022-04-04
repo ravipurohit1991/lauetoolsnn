@@ -17,7 +17,7 @@ Version 3.0.39
 - numpy 
 - h5py (required for writing neural network model files)
 - scikit-learn (required for generating trained model classification reports)
-- fabio (used for opening raw Laue tiff images)
+- fabio (used for opening raw Laue tiff images; optional from v3.0.39, replace by matplotlib image read function)
 - networkx (to be replaced with numpy in the future)
 - scikit-image (used for hough based analysis of Laue patterns)
 - tqdm (required only for notebook scripts)
