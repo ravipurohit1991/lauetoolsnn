@@ -26,16 +26,8 @@ setuptools.setup(
     
     url="https://github.com/ravipurohit1991/lauetoolsnn",
     
-    #install_requires=['matplotlib>=3.4.2', 'Keras>=2.4.3', 'fast_histogram>=0.10', 'numpy>=1.18.5', 'h5py>=2.10.0', 
-                        #'tensorflow>=2.3.0','LaueTools>=3.0.0.71', 'PyQt5>=5.9', 'scikit-learn>=0.24.2', 'fabio>=0.11.0', 'networkx>=2.6.3']
-    # Remove fast_histogram dependency by replacing it with Numpy
-    # networkx library should also be replaced by numpy list intersect method
-    
-    #setup_requires=['matplotlib', 'Keras', 'fast_histogram', 'numpy', 'h5py', 'tensorflow', 'PyQt5', 'scikit-learn', 'fabio', 'networkx', 'scikit-image','tqdm'],
-    #install_requires=['matplotlib>=3.4.2', 'Keras>=2.4.3', 'fast_histogram>=0.10', 'numpy>=1.18.5', 'h5py>=2.10.0', 'tensorflow>=2.3.0', 'PyQt5>=5.9', 'scikit-learn>=0.24.2', 'fabio>=0.11.0', 'networkx>=2.6.3', 'scikit-image>=0.18.0','tqdm>=4.60.0'],
-    
-    setup_requires=['matplotlib', 'Keras', 'numpy', 'h5py', 'tensorflow', 'PyQt5', 'scikit-learn', 'fabio', 'networkx', 'scikit-image','tqdm'],
-    install_requires=['matplotlib>=3.4.2', 'Keras>=2.7.0', 'numpy>=1.18.5', 'h5py>=3.5.0', 'tensorflow>=2.7.0', 'PyQt5>=5.9', 'scikit-learn>=0.24.2', 'fabio>=0.11.0', 'networkx>=2.6.3', 'scikit-image>=0.18.0','tqdm>=4.60.0'],
+    setup_requires=['matplotlib', 'Keras', 'scipy','numpy', 'h5py', 'tensorflow', 'PyQt5', 'scikit-learn', 'fabio', 'networkx', 'scikit-image','tqdm'],
+    install_requires=['matplotlib>=3.4.2', 'Keras>=2.7.0', 'scipy>=1.7.0','numpy>=1.18.5', 'h5py>=3.5.0', 'tensorflow>=2.7.0', 'PyQt5>=5.9', 'scikit-learn>=0.24.2', 'fabio>=0.11.0', 'networkx>=2.6.3', 'scikit-image>=0.18.0','tqdm>=4.60.0'],
 
 
     entry_points={

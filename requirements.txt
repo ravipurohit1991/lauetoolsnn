@@ -9,3 +9,4 @@ fabio==0.13.0
 networkx==2.6.3
 scikit-image==0.18.0
 tqdm==4.60.0
+scipy==1.8.0
