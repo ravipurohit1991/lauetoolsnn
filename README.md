@@ -35,7 +35,7 @@ or can be compiled and installed locally via the setup.py file. Download the Git
 $ python setup.py install
 ```
 
-See procedure_usage_lauetoolsnn.pdf in lauetollsnn/presentation directory for installation and details about the configuration file to be used with GUI.
+See procedure_usage_lauetoolsnn.pdf in lauetoolsnn/presentations directory for installation and details about the configuration file to be used with GUI.
 
 ### Example case
 Two example case studies are included in the lauetoolsnn\examples folder.
