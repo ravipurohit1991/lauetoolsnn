@@ -15,7 +15,6 @@ Version 3.0.39
 - tensorflow 
 - fast_histogram (replaced by numpy in v3.0.39)
 - numpy 
-- scipy (scipy transform rotation is used)
 - h5py (required for writing neural network model files)
 - scikit-learn (required for generating trained model classification reports)
 - fabio (used for opening raw Laue tiff images)
