@@ -4,20 +4,19 @@ A feed-forward neural network (FFNN) model to predict the HKL in single/multi-gr
 Version 3.0.38
 
 #### Requirements: (latest version of each libraries accessed on 03/04/2022)  
-- Python3
-- pip
-- PyQt5
+- PyQt5 (GUI)
 - matplotlib
 - Keras
-- tensorflow
-- fast_histogram
-- numpy
-- h5py
-- scikit-learn
-- fabio
-- networkx
-- scikit-image
-- tqdm
+- tensorflow 
+- fast_histogram (to be replaced with numpy in the future)
+- numpy 
+- scipy (scipy transform rotation is used)
+- h5py (required for writing neural network model files)
+- scikit-learn (required for generating trained model classification reports)
+- fabio (used for opening raw Laue tiff images)
+- networkx (to be replaced with numpy in the future)
+- scikit-image (used for hough based analysis of Laue patterns)
+- tqdm (required only for notebook scripts)
 
 #### Installation
 Lauetoolsnn can be installed either via PYPI usiing the following command in terminal (this installs all dependencies automatically)
