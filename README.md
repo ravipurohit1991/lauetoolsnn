@@ -4,10 +4,10 @@ A feed-forward neural network (FFNN) model to predict the HKL in single/multi-gr
 Version 3.0.38
 ### Video tutorial
 
-#### Video 1: Working with jupyter notebook scripts
+Video 1: Working with jupyter notebook scripts
 
 
-#### Requirements: (latest version of each libraries accessed on 03/04/2022)  
+### Requirements: (latest version of each libraries accessed on 03/04/2022)  
 - PyQt5 (GUI)
 - matplotlib
 - Keras
@@ -22,7 +22,7 @@ Version 3.0.38
 - scikit-image (used for hough based analysis of Laue patterns)
 - tqdm (required only for notebook scripts)
 
-#### Installation
+### Installation
 Lauetoolsnn can be installed either via PYPI usiing the following command in terminal (this installs all dependencies automatically)
 ``` bash
 $ pip install lauetoolsnn
@@ -35,7 +35,7 @@ $ python setup.py install
 
 See procedure_usage_lauetoolsnn.pdf for installation and how to write the configuration file to be used with GUI.
 
-#### Example case
+### Example case
 Two example case studies are included in the lauetoolsnn\examples folder.
 Run the GUI by either launching directly from the terminal using the 'lauetoolsnn' command or by running it locally with python lauetoolsneuralnetwork.py command.
 
