@@ -24,7 +24,8 @@ Version 3.0.38
 - tqdm (required only for notebook scripts)
 
 ### Installation
-Lauetoolsnn can be installed either via PYPI usiing the following command in terminal (this installs all dependencies automatically)
+Lauetoolsnn can be installed either via PYPI usiing the following command in terminal (this installs all dependencies automatically): 
+https://pypi.org/project/lauetoolsnn/
 ``` bash
 $ pip install lauetoolsnn
 ```
