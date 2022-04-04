@@ -1,7 +1,7 @@
 # lauetoolsnn
 A feed-forward neural network (FFNN) model to predict the HKL in single/multi-grain/multi-phase Laue patterns with high efficiency and accuracy is introduced. 
 
-Version 3.0.38
+Version 3.0.39
 ### Video tutorial
 
 - Video 1: Working with jupyter notebook scripts : https://cloud.esrf.fr/s/6q4DJfAn7K46BGN
@@ -13,7 +13,7 @@ Version 3.0.38
 - matplotlib
 - Keras
 - tensorflow 
-- fast_histogram (to be replaced with numpy in the future)
+- fast_histogram (replaced by numpy in v3.0.39)
 - numpy 
 - scipy (scipy transform rotation is used)
 - h5py (required for writing neural network model files)
