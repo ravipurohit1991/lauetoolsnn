@@ -9,7 +9,7 @@ Version 3.0.38
 
 
 ### Requirements: (latest version of each libraries accessed on 03/04/2022)  
-- PyQt5 (GUI)
+- PyQt5 (GUI) --> will be ported to PyQt6 soon
 - matplotlib
 - Keras
 - tensorflow 
