@@ -2,6 +2,10 @@
 A feed-forward neural network (FFNN) model to predict the HKL in single/multi-grain/multi-phase Laue patterns with high efficiency and accuracy is introduced. 
 
 Version 3.0.38
+### Video tutorial
+
+#### Video 1: Working with jupyter notebook scripts
+
 
 #### Requirements: (latest version of each libraries accessed on 03/04/2022)  
 - PyQt5 (GUI)
