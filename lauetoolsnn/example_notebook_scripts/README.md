@@ -9,5 +9,5 @@ This notebook give introduction to defining a neural network architecture. Since
 
 ## Step 3: verify the neural network prediction and indexation of Laue Patterns: https://github.com/ravipurohit1991/lauetoolsnn/blob/main/lauetoolsnn/example_notebook_scripts/Step3_Prediction_LaueNN.ipynb
 This script describes the steps for predicting Laue spots hkl for a given input and also includes functions that reconstructs orientation matrix and indexes the crystal of the given dataset. A script to generate simulated Laue patterns for prediction is also provided. (Step 3a: Generation of simulated dataset for prediction: https://github.com/ravipurohit1991/lauetoolsnn/blob/main/lauetoolsnn/example_notebook_scripts/Step3a_Generate_simulateLPforPrediction_LaueNN.ipynb)
-The scripts have default values that should allow any user to launch all the scripts in sequence to see the working flow of the method described in this article.
+The scripts have default values that should allow any user to launch all the scripts in sequence to see the working flow of the method described in the LaueNN article.
 
