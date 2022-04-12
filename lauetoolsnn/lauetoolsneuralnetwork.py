@@ -73,9 +73,19 @@ from PyQt5.QtWidgets import QApplication, QMainWindow,\
                             QToolBar, QStatusBar, QSlider, \
                             QVBoxLayout, QTextEdit, QProgressBar, \
                             QComboBox, QLineEdit, QFileDialog, QMenuBar,QScrollArea
+                            
+# from PyQt6 import QtCore#, QtGui
+# from PyQt6.QtCore import QSettings
+# from PyQt6 import QtGui, QtWidgets
+# from PyQt6.QtWidgets import QApplication, QMainWindow,\
+#                             QPushButton, QWidget, QFormLayout, \
+#                             QToolBar, QStatusBar, QSlider, \
+#                             QVBoxLayout, QTextEdit, QProgressBar, \
+#                             QComboBox, QLineEdit, QFileDialog, QMenuBar,QScrollArea
+                            
 ## for faster binning of histogram
 ## C version of hist
-from fast_histogram import histogram1d
+# from fast_histogram import histogram1d
 ## Keras import
 tensorflow_keras = True
 try:
@@ -5568,7 +5578,7 @@ class AnotherWindowLivePrediction(QWidget):#QWidget QScrollArea
             
             files_treated.append(files)
                         
-            if files.split(".")[1] != "cor":
+            if files.split(".")[-1] != "cor":
                 CCDLabel=ccd_label
                 seednumber = "Experimental "+CCDLabel+" file"    
                 
@@ -5683,7 +5693,7 @@ class AnotherWindowLivePrediction(QWidget):#QWidget QScrollArea
                                    chi, peak_XY[:,0], peak_XY[:,1], peak_XY[:,2],
                                    param=CCDcalib, sortedexit=0)
                 
-            elif files.split(".")[1] == "cor":
+            elif files.split(".")[-1] == "cor":
                 seednumber = "Experimental COR file"
                 allres = IOLT.readfile_cor(files, True)
                 data_theta, data_chi, peakx, peaky, intensity = allres[1:6]
@@ -5733,8 +5743,8 @@ class AnotherWindowLivePrediction(QWidget):#QWidget QScrollArea
             for i in spots_in_center:
                 spotangles = tabledistancerandom[i]
                 spotangles = np.delete(spotangles, i)# removing the self distance
-                # codebars = np.histogram(spotangles, bins=angbins)[0]
-                codebars = histogram1d(spotangles, range=[min(angbins),max(angbins)], bins=len(angbins)-1)
+                codebars = np.histogram(spotangles, bins=angbins)[0]
+                # codebars = histogram1d(spotangles, range=[min(angbins),max(angbins)], bins=len(angbins)-1)
                 ## normalize the same way as training data
                 max_codebars = np.max(codebars)
                 codebars = codebars/ max_codebars
