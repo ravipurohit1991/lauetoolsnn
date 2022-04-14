@@ -1,4 +1,4 @@
-This repository contains the data and prediction results of the neural network model for case studies presented in the article.
+This repository contains the data and prediction results of the neural network model for case studies presented in the article "LaueNN: Neural network based hkl recognition of Laue spots and its application to polycrystalline materials".
 
 The results can be visualized by loading the results.pickle file in the lauetoolsnn GUI --> Live prediction with IPF map button and then file--> load results tab.
 
