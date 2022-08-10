@@ -1,12 +1,7 @@
 # lauetoolsnn
 A feed-forward neural network (FFNN) model to predict the HKL in single/multi-grain/multi-phase Laue patterns with high efficiency and accuracy is introduced. 
 
--New version: (coming soon)
-- DNN and CNN models are now implemented with pure numpy framework. This avoids installing Tensorflow and keras libraries. 
-
-version 3.0.40 
-- Change log: Included scripts that supports Training and Predicting 'N' phases from a multi-phase Laue pattern (lauetoolsnn/multi_mat_LaueNN)
-
+Version 3.0.39
 ### Video tutorial
 
 - Video 1: Working with jupyter notebook scripts : https://cloud.esrf.fr/s/6q4DJfAn7K46BGN
@@ -14,14 +9,16 @@ version 3.0.40
 
 
 ### Requirements: (latest version of each libraries accessed on 03/04/2022)  
-- PyQt5 (GUI) --> will be ported to PyQt6 soon
+- PyQt5 (GUI)
 - matplotlib
 - Keras
 - tensorflow 
+- fast_histogram (to be replaced with numpy in the future)
 - numpy 
-- scipy (used for optimization)
+- scipy (scipy transform rotation is used)
 - h5py (required for writing neural network model files)
 - scikit-learn (required for generating trained model classification reports)
+- fabio (used for opening raw Laue tiff images)
 - networkx (to be replaced with numpy in the future)
 - scikit-image (used for hough based analysis of Laue patterns)
 - tqdm (required only for notebook scripts)
@@ -38,7 +35,7 @@ or can be compiled and installed locally via the setup.py file. Download the Git
 $ python setup.py install
 ```
 
-See procedure_usage_lauetoolsnn.pdf in lauetoolsnn/presentations directory for installation and details about the configuration file to be used with GUI.
+See procedure_usage_lauetoolsnn.pdf for installation and how to write the configuration file to be used with GUI.
 
 ### Example case
 Two example case studies are included in the lauetoolsnn\examples folder.
@@ -58,7 +55,3 @@ In addition, all the above mentioned steps can be done without the GUI and are d
 Jupyter notebook scripts are provided to run all the steps sequentially.
 
 The indexed orientation matrix is also written in ".ctf" format, which can then be opened with channel 5 Aztec or MTEX software to do post processing related to orientations analysis. MTEX post processing script is also included in the lauetoolsnn\util_script\MTEX_plot.m
-
-
-### License
-The scripts and documentation in this project are released under the [MIT License](LICENSE)
