@@ -1,11 +1,10 @@
 # lauetoolsnn
 A feed-forward neural network (FFNN) model to predict the HKL in single/multi-grain/multi-phase Laue patterns with high efficiency and accuracy is introduced. 
 
--New version: (coming soon)
-- DNN and CNN models are now implemented with pure numpy framework. This avoids installing Tensorflow and keras libraries. 
+From version 3.0.50
+- DNN and CNN models are now implemented with pure numpy framework. This avoids installing Tensorflow and keras libraries. However this is very slow, it is included in the development directory if one wishes to pursue further on this. 
 
-version 3.0.40 
-- Change log: Included scripts that supports Training and Predicting 'N' phases from a multi-phase Laue pattern (lauetoolsnn/multi_mat_LaueNN)
+From version 3.0.40: Included scripts that supports Training and Predicting 'N' phases from a multi-phase Laue pattern (lauetoolsnn/multi_mat_LaueNN)
 
 ### Video tutorial
 
