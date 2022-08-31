@@ -16,7 +16,6 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
     import random
     from random import random as rand1
     from math import acos
-    from random import randrange
     from tqdm import trange
     
     ## if LaueToolsNN is properly installed
@@ -51,10 +50,25 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
                     # =============================================================================
                     #       GENERATION OF DATASET              
                     # =============================================================================
-                    "material_": ["Cu","Si","Ge","GaN"],             ## same key as used in dict_LaueTools
+                    "material_": ["Zr_alpha",
+                                  "ZrO2_mono",
+                                  "ZrO2_tet",
+                                  "ZrO2_cub",
+                                  "Zr_Nb_Fe",
+                                  ],             ## same key as used in dict_LaueTools
                     "prefix" : "",                 ## prefix for the folder to be created for training dataset
-                    "symmetry": ["cubic","cubic","cubic","hexagonal"],           ## crystal symmetry of material_
-                    "SG": [225,230,230,186],                     ## Space group of material_ (None if not known)
+                    "symmetry": ["hexagonal",
+                                 "monoclinic",
+                                 "tetragonal",
+                                 "cubic",
+                                 "hexagonal",
+                                 ],           ## crystal symmetry of material_
+                    "SG": [194,
+                           14,
+                           137,
+                           225,
+                           194,
+                           ],                     ## Space group of material_ (None if not known)
                     # =============================================================================
                     #        Detector parameters (roughly) of the Experimental setup
                     # =============================================================================
@@ -71,11 +85,15 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
                     "experimental_directory": "",
                     "experimental_prefix": "",
                     "use_simulated_dataset": True,  ## Use simulated dataset (generated at step 3a) incase no experimental data to verify the trained model
-                    "grid_size_x" : 5,            ## Grid X and Y limit to generate the simulated dataset (a rectangular scan region)
-                    "grid_size_y" : 5,  
-                    "grains_max" :[1,1,1,1], ## Maximum number of grains to simulate (randomly generate between 1 and grains_max parameters)
+                    "grid_size_x" : 25,            ## Grid X and Y limit to generate the simulated dataset (a rectangular scan region)
+                    "grid_size_y" : 25,  
+                    "grains_max" :[1,
+                                   1,
+                                   1,
+                                   1,
+                                   1,
+                                   ], ## Maximum number of grains to simulate (randomly generate between 1 and grains_max parameters)
                     }
-    
     
     # ## Step 2: Get material parameters 
     

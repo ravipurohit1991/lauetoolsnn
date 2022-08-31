@@ -39,12 +39,6 @@ except:
             DEFAULT_DETECTOR_DISTANCE, DEFAULT_DETECTOR_DIAMETER, DEFAULT_TOP_GEOMETRY)
 
 USE_CYTHON = False
-try:
-    import generatehkl
-    USE_CYTHON = True
-except ImportError:
-    #print("-- warning. Cython compiled module for fast computation of Laue spots is not installed!")
-    USE_CYTHON = False
 
 DEG = np.pi / 180.0
 
@@ -447,28 +441,6 @@ def getLaueSpots(wavelmin, wavelmax, crystalsParams, kf_direction=DEFAULT_TOP_GE
         # Loop over h k l
         # ----cython optimization
         global USE_CYTHON
-        if USE_CYTHON:
-            hlim, klim, llim = list_hkl_limits
-            hmin, hmax = hlim
-            kmin, kmax = klim
-            lmin, lmax = llim
-            dict_extinc = {"no": 0, "fcc": 1, "dia": 2}
-            try:
-                ExtinctionCode = dict_extinc[Extinc]
-                SPECIAL_EXTINC = False
-            except KeyError:
-                ExtinctionCode = 0
-                SPECIAL_EXTINC = True
-
-            #  print "\n\n*******\nUsing Cython optimization\n********\n\n"
-            hkls, counter = generatehkl.genHKL(hmin, hmax, kmin, kmax, lmin, lmax, ExtinctionCode)
-
-            table_vec = hkls[:counter]
-
-            # TODO need to remove element [0,0,0] or naturally removed in ?
-            if SPECIAL_EXTINC:
-                #  print "special extinction"
-                table_vec = CP.ApplyExtinctionrules(table_vec, Extinc)
 
         if not USE_CYTHON:
             table_vec = genHKL_np(list_hkl_limits, Extinc)

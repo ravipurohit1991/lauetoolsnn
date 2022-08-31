@@ -7,6 +7,10 @@ Created on Mon Mar 21 23:21:19 2022
 import numpy as np
 import _pickle as cPickle
 import time, datetime
+import sys
+sys.path.append(r"C:\Users\purushot\Desktop\github_version_simple\lauetoolsnn")
+
+from tqdm import trange
 
 ct = time.time()
 now = datetime.datetime.fromtimestamp(ct)
@@ -30,7 +34,7 @@ for i in range(len(rotation_matrix1)):
     rotation_matrix[i].append(np.zeros((lim_x*lim_y,3,3)))
 
 
-for i in range(len(rotation_matrix1)):
+for i in trange(len(rotation_matrix1)):
     temp_mat = rotation_matrix1[i][0]    
     for j in range(len(temp_mat)):
         orientation_matrix = temp_mat[j,:,:]     

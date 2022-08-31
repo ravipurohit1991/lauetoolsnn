@@ -16,7 +16,10 @@ Editor Theo Hahn
 First Edition 1983, Fifth Edition 2002
 Corrected Reprint 2005
 """
+__author__ = "Ravi raj purohit PURUSHOTTAM RAJ PUROHIT, CRG-IF BM32 @ ESRF"
+
 import re
+import numpy as np
 
 __all__ = ["RangeDict", "eqhkl_default", "eqhkl_custom", "wp"]
 
@@ -66,7 +69,7 @@ def get_default_sgrp_suf(sgrp_nr):
         return possibilities[0]
     else:
         return ''
-    
+
 def testhklcond_generalrules(spacegroup, hkl):
     """
      * test if a Bragg peak is allowed according to reflection conditions
@@ -85,14 +88,17 @@ def testhklcond_generalrules(spacegroup, hkl):
     space_group_suf = get_default_sgrp_suf(space_group_nr)
     if space_group_suf != '':
         space_group = str(space_group_nr) + space_group_suf
+        
     # save general Wyckoff position
     gplabel = sorted(wp[space_group], key=lambda s: int(s[:-1]))[-1]
     gp = wp[space_group][gplabel]
+    
     # load reflection conditions if needed
     if gp[2] is not None or gp[2] != 'n/a':
         hklcond = hklcond_group.findall(gp[2])
     else:
         return True
+
     pattern_applied = 0
     condition_met = 2
     for i in hklcond:
@@ -114,98 +120,82 @@ def testhklcond_generalrules(spacegroup, hkl):
             return False
         else:
             return True
-        
+
 def check2n(h):
     if (h % 2 == 0):
         return 1
     else:
         return 0
-
 def check2np1(h):
     if ((h-1) % 2 == 0):
         return 1
     else:
         return 0
-
 def check3n(h):
     if (h % 3 == 0):
         return 1
     else:
         return 0
-
 def check3np1(h):
     if ((h-1) % 3 == 0):
         return 1
     else:
         return 0
-
 def check3np2(h):
     if ((h-2) % 3 == 0):
         return 1
     else:
         return 0
-
 def check4n(h):
     if (h % 4 == 0):
         return 1
     else:
         return 0
-
 def check4np2(h):
     if ((h-2) % 4 == 0):
         return 1
     else:
         return 0
-
-
 def check6n(h):
     if (h % 6 == 0):
         return 1
     else:
         return 0
-
 def check8n(h):
     if (h % 8 == 0):
         return 1
     else:
         return 0
-
 def check8np1(h):
     if ((h-1) % 8 == 0):
         return 1
     else:
         return 0
-
 def check8nm1(h):
     if ((h+1) % 8 == 0):
         return 1
     else:
         return 0
-
 def check8np3(h):
     if ((h-3) % 8 == 0):
         return 1
     else:
         return 0
-
 def check8nm3(h):
     if ((h+3) % 8 == 0):
         return 1
     else:
         return 0
-
 def check8np4(h):
     if ((h-4) % 8 == 0):
         return 1
     else:
         return 0
- 
 def check8np5(h):
     if ((h-5) % 8 == 0):
         return 1
     else:
         return 0
-
 def check8np7(h):
     if ((h-7) % 8 == 0):
         return 1
@@ -431,6 +421,321 @@ def reflection_condition_met(hkl, cond):
         return 1
     else:
         return 0
+# =============================================================================
+# Array version
+# =============================================================================
+
+def testhklcond_generalrules_array(spacegroup, hkl):
+    """
+     * test if a Bragg peak is allowed according to reflection conditions
+     * Parameters
+     * ----------
+     *  hkl :           Miller indices of the peak to test (integer array)
+     *  spacegroup :   General reflection conditions will be taken for the spacegroup
+     * Returns
+     * -------
+     * bool : True if peak is allowed, False otherwise
+     """
+    # * test general reflection conditions
+    # * if they are violated the peak is forbidden
+    space_group = str(spacegroup)
+    space_group_nr = int(space_group.split(':')[0])
+    space_group_suf = get_default_sgrp_suf(space_group_nr)
+    if space_group_suf != '':
+        space_group = str(space_group_nr) + space_group_suf
+        
+    # save general Wyckoff position
+    gplabel = sorted(wp[space_group], key=lambda s: int(s[:-1]))[-1]
+    gp = wp[space_group][gplabel]
+    
+    # load reflection conditions if needed
+    if gp[2] is not None or gp[2] != 'n/a':
+        hklcond = hklcond_group.findall(gp[2])
+    else:
+        return True
+    
+    ##Array version of the code
+    pattern_applied = np.zeros(len(hkl), dtype=np.int8)
+    condition_met = np.ones(len(hkl), dtype=np.int8) * 2
+    
+    for i in hklcond:
+        hklpattern = i[0]
+        cond = i[1]
+        
+        hklpat_return = hklpattern_applies_array(hkl, hklpattern)
+        ind_pat = np.where(hklpat_return == 1)[0]
+        ind1_pat = np.where(hklpat_return == 0)[0]
+        pattern_applied[ind_pat] = 1
+        pattern_applied[ind1_pat] = 0
+        
+        fulfilled = reflection_condition_met_array(hkl, cond)
+        ind_cond = np.where(fulfilled == 1)[0]
+        ind1_cond = np.where(fulfilled == 0)[0]
+        condition_met[ind_cond] = 1
+        condition_met[ind1_cond] = 0
+        
+        del_index = [x for x in ind1_cond if x not in ind1_pat]
+
+        hkl = np.delete(hkl, del_index, axis=0)
+        condition_met = np.delete(condition_met, del_index, axis=0)
+        pattern_applied = np.delete(pattern_applied, del_index, axis=0)
+        
+    return hkl
+
+def hklpattern_applies_array(hkl, condhkl):
+    """/*
+     * helper function to determine if Miller indices fit a certain pattern
+     * Parameters
+     * ----------
+     *  hkl : array of three integers Miller indices
+     *  condhkl : condition string similar to 'hkl', 'hh0', or '0k0'
+     * Returns
+     * -------
+     *  1 if hkl fulfills the pattern, 0 otherwise
+    */"""
+    n=0
+    return_array = np.ones(len(hkl), dtype=np.int8)
+    if (condhkl[n] == '0'):
+        ind = np.where(hkl[:,0]!=0)[0]
+        return_array[ind] = 0
+    n = n + 1
+    if (condhkl[n] == '-'):
+        n = n + 1
+        if (condhkl[n] == 'h'):
+            ind = np.where(hkl[:,1] != -hkl[:,0])[0]
+            return_array[ind] = 0
+    elif (condhkl[n] == '0'):
+        ind = np.where(hkl[:,1] != 0)[0]
+        return_array[ind] = 0
+    elif (condhkl[n] == 'h'):
+        ind = np.where(hkl[:,1] != hkl[:,0])[0]
+        return_array[ind] = 0
+    if (condhkl[len(condhkl)-1] == '0'):
+        ind = np.where(hkl[:,2] != 0)[0]
+        return_array[ind] = 0
+    return return_array
+
+def check2n_arr(h, arr):
+    ind = np.where(h % 2 != 0)[0]
+    arr[ind] = 0
+    return arr
+def check2np1_arr(h, arr):
+    ind = np.where((h-1) % 2 != 0)[0]
+    arr[ind] = 0
+    return arr
+def check3n_arr(h, arr):
+    ind = np.where(h % 3 != 0)[0]
+    arr[ind] = 0
+    return arr
+def check3np1_arr(h, arr):
+    ind = np.where((h-1) % 3 != 0)[0]
+    arr[ind] = 0
+    return arr
+def check3np2_arr(h, arr):
+    ind = np.where((h-2) % 3 != 0)[0]
+    arr[ind] = 0
+    return arr
+def check4n_arr(h, arr):
+    ind = np.where(h % 4 != 0)[0]
+    arr[ind] = 0
+    return arr
+def check4np2_arr(h, arr):
+    ind = np.where((h-2) % 4 != 0)[0]
+    arr[ind] = 0
+    return arr
+def check6n_arr(h, arr):
+    ind = np.where(h % 6 != 0)[0]
+    arr[ind] = 0
+    return arr
+def check8n_arr(h, arr):
+    ind = np.where(h % 8 != 0)[0]
+    arr[ind] = 0
+    return arr
+def check8np1_arr(h, arr):
+    ind = np.where((h-1) % 8 != 0)[0]
+    arr[ind] = 0
+    return arr
+def check8nm1_arr(h, arr):
+    ind = np.where((h+1) % 8 != 0)[0]
+    arr[ind] = 0
+    return arr
+def check8np3_arr(h, arr):
+    ind = np.where((h-3) % 8 != 0)[0]
+    arr[ind] = 0
+    return arr
+def check8nm3_arr(h, arr):
+    ind = np.where((h+3) % 8 != 0)[0]
+    arr[ind] = 0
+    return arr
+def check8np4_arr(h, arr):
+    ind = np.where((h-4) % 8 != 0)[0]
+    arr[ind] = 0
+    return arr
+def check8np5_arr(h, arr):
+    ind = np.where((h-5) % 8 != 0)[0]
+    arr[ind] = 0
+    return arr
+def check8np7_arr(h, arr):
+    ind = np.where((h-7) % 8 != 0)[0]
+    arr[ind] = 0
+    return arr
+
+def reflection_condition_met_array(hkl, cond):
+    """/*
+     * helper function to determine allowed Miller indices
+     *
+     * Parameters
+     * ----------
+     *  hkl: list or tuple
+     *   Miller indices of the reflection
+     *  cond: str
+     *   condition string similar to 'h+k=2n, h+l,k+l=2n'
+     *
+     * Returns
+     * -------
+     *  1 if condition is met, 0 otherwise
+    */"""
+    fulfilled = np.ones(len(hkl), dtype=np.int8)
+    
+    condi = cond.split("=")
+    if len(condi) > 2:
+        condi = cond.split(", ")
+        if len(condi) > 2:
+            fulfilled[:] = 0
+            print("right hand expression error")
+
+        for kun in condi:
+            condi1 = kun.split("=")
+            rexpr = condi1[1]
+            lexpr_global = condi1[0]
+            
+            if strcmp(rexpr, "2n"):
+                checkfunc = check2n_arr
+            elif strcmp(rexpr, "2n+1"):
+                checkfunc = check2np1_arr
+            elif strcmp(rexpr, "3n"):
+                checkfunc = check3n_arr
+            elif strcmp(rexpr, "3n+1"):
+                checkfunc = check3np1_arr
+            elif strcmp(rexpr, "3n+2"):
+                checkfunc = check3np2_arr
+            elif strcmp(rexpr, "4n"):
+                checkfunc = check4n_arr
+            elif strcmp(rexpr, "4n+2"):
+                checkfunc = check4np2_arr
+            elif strcmp(rexpr, "6n"):
+                checkfunc = check6n_arr
+            elif strcmp(rexpr, "8n"):
+                checkfunc = check8n_arr
+            elif strcmp(rexpr, "8n+1"):
+                checkfunc = check8np1_arr
+            elif strcmp(rexpr, "8n-1"):
+                checkfunc = check8nm1_arr
+            elif strcmp(rexpr, "8n+3"):
+                checkfunc = check8np3_arr
+            elif strcmp(rexpr, "8n-3"):
+                checkfunc = check8nm3_arr
+            elif strcmp(rexpr, "8n+4"):
+                checkfunc = check8np4_arr
+            elif strcmp(rexpr, "8n+5"):
+                checkfunc = check8np5_arr
+            elif strcmp(rexpr, "8n+7"):
+                checkfunc = check8np7_arr
+            else:
+                print("Right hand side of reflection condition (%s) not implemented" %(rexpr))
+                return -1
+            
+            for lexpr in lexpr_global.split(','):
+                if strcmp(lexpr, "h"):
+                    fulfilled = checkfunc(hkl[:,0], fulfilled)
+                elif strcmp(lexpr, "k"):
+                    fulfilled = checkfunc(hkl[:,1], fulfilled)
+                elif strcmp(lexpr, "l"):
+                    fulfilled = checkfunc(hkl[:,2], fulfilled)
+                elif strcmp(lexpr, "h+k"):
+                    fulfilled = checkfunc(hkl[:,0] + hkl[:,1], fulfilled)
+                elif strcmp(lexpr, "h-k"):
+                    fulfilled = checkfunc(hkl[:,0] - hkl[:,1], fulfilled)
+                elif strcmp(lexpr, "-h+k"):
+                    fulfilled = checkfunc(-hkl[:,0] + hkl[:,1], fulfilled)
+                elif strcmp(lexpr, "h+l"):
+                    fulfilled = checkfunc(hkl[:,0] + hkl[:,2], fulfilled)
+                elif strcmp(lexpr, "k+l"):
+                    fulfilled = checkfunc(hkl[:,1] + hkl[:,2], fulfilled)
+                elif strcmp(lexpr, "h+k+l"):
+                    fulfilled = checkfunc(hkl[:,0] + hkl[:,1] + hkl[:,2], fulfilled)
+                elif strcmp(lexpr, "-h+k+l"):
+                    fulfilled = checkfunc(-hkl[:,0] + hkl[:,1] + hkl[:,2], fulfilled)
+                elif strcmp(lexpr, "2h+l"):
+                    fulfilled = checkfunc(2*hkl[:,0] + hkl[:,2], fulfilled)
+                elif strcmp(lexpr, "2k+l"):
+                    fulfilled = checkfunc(2*hkl[:,1] + hkl[:,2], fulfilled)
+    else:
+        rexpr = condi[1]
+        lexpr_global = condi[0]
+    
+        if strcmp(rexpr, "2n"):
+            checkfunc = check2n_arr
+        elif strcmp(rexpr, "2n+1"):
+            checkfunc = check2np1_arr
+        elif strcmp(rexpr, "3n"):
+            checkfunc = check3n_arr
+        elif strcmp(rexpr, "3n+1"):
+            checkfunc = check3np1_arr
+        elif strcmp(rexpr, "3n+2"):
+            checkfunc = check3np2_arr
+        elif strcmp(rexpr, "4n"):
+            checkfunc = check4n_arr
+        elif strcmp(rexpr, "4n+2"):
+            checkfunc = check4np2_arr
+        elif strcmp(rexpr, "6n"):
+            checkfunc = check6n_arr
+        elif strcmp(rexpr, "8n"):
+            checkfunc = check8n_arr
+        elif strcmp(rexpr, "8n+1"):
+            checkfunc = check8np1_arr
+        elif strcmp(rexpr, "8n-1"):
+            checkfunc = check8nm1_arr
+        elif strcmp(rexpr, "8n+3"):
+            checkfunc = check8np3_arr
+        elif strcmp(rexpr, "8n-3"):
+            checkfunc = check8nm3_arr
+        elif strcmp(rexpr, "8n+4"):
+            checkfunc = check8np4_arr
+        elif strcmp(rexpr, "8n+5"):
+            checkfunc = check8np5_arr
+        elif strcmp(rexpr, "8n+7"):
+            checkfunc = check8np7_arr
+        else:
+            print("Right hand side of reflection condition (%s) not implemented" %(rexpr))
+            return -1
+        
+        for lexpr in lexpr_global.split(','):
+            if strcmp(lexpr, "h"):
+                fulfilled = checkfunc(hkl[:,0], fulfilled)
+            elif strcmp(lexpr, "k"):
+                fulfilled = checkfunc(hkl[:,1], fulfilled)
+            elif strcmp(lexpr, "l"):
+                fulfilled = checkfunc(hkl[:,2], fulfilled)
+            elif strcmp(lexpr, "h+k"):
+                fulfilled = checkfunc(hkl[:,0] + hkl[:,1], fulfilled)
+            elif strcmp(lexpr, "h-k"):
+                fulfilled = checkfunc(hkl[:,0] - hkl[:,1], fulfilled)
+            elif strcmp(lexpr, "-h+k"):
+                fulfilled = checkfunc(-hkl[:,0] + hkl[:,1], fulfilled)
+            elif strcmp(lexpr, "h+l"):
+                fulfilled = checkfunc(hkl[:,0] + hkl[:,2], fulfilled)
+            elif strcmp(lexpr, "k+l"):
+                fulfilled = checkfunc(hkl[:,1] + hkl[:,2], fulfilled)
+            elif strcmp(lexpr, "h+k+l"):
+                fulfilled = checkfunc(hkl[:,0] + hkl[:,1] + hkl[:,2], fulfilled)
+            elif strcmp(lexpr, "-h+k+l"):
+                fulfilled = checkfunc(-hkl[:,0] + hkl[:,1] + hkl[:,2], fulfilled)
+            elif strcmp(lexpr, "2h+l"):
+                fulfilled = checkfunc(2*hkl[:,0] + hkl[:,2], fulfilled)
+            elif strcmp(lexpr, "2k+l"):
+                fulfilled = checkfunc(2*hkl[:,1] + hkl[:,2], fulfilled)
+    return fulfilled
 
 # space group number to symmetry and number of parameters dictionary
 sgrp_sym = RangeDict({range(1, 3): ('triclinic', 6),

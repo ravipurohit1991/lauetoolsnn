@@ -13,11 +13,17 @@ TODO:
     1. HDF5 file format output instead of pickle --> better data handling (check out PYMICRO)
     2. Notebook to post process the results (choice of bin width, data selectivity, etc...)
     3. Dynamic Multi processing variables ?
+    4. Structure factor caluclation with xrayutilities
     
     #TODO
+    # Include a user defined list of HKLs to be included in the training dataset
     # Write a function that looks for pixels with no indexation having atleast 6 neighbors indexed
     # idea is to index with their rotation matrix ?
     # Also write a function to rearrange matricies of each pixel to have complete grain representation
+    
+    # Auto save data
+    # extract average UB from the list of UBs for a given MR threshold and run again the analysis
+    # calculate similarity between top 100 intese peaks in similarity algorithm
 """
 __author__ = "Ravi raj purohit PURUSHOTTAM RAJ PUROHIT, CRG-IF BM32 @ ESRF"
 
@@ -65,32 +71,21 @@ import ast, configparser
 from sklearn.metrics import classification_report
 from skimage.transform import (hough_line, hough_line_peaks)
 
-from PyQt5 import QtCore#, QtGui
-from PyQt5.QtCore import QSettings
-from PyQt5 import QtGui, QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import QSettings, QTimer
+from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QApplication, QMainWindow,\
                             QPushButton, QWidget, QFormLayout, \
                             QToolBar, QStatusBar, QSlider, \
                             QVBoxLayout, QTextEdit, QProgressBar, \
-                            QComboBox, QLineEdit, QFileDialog, QMenuBar,QScrollArea
-                            
-# from PyQt6 import QtCore#, QtGui
-# from PyQt6.QtCore import QSettings
-# from PyQt6 import QtGui, QtWidgets
-# from PyQt6.QtWidgets import QApplication, QMainWindow,\
-#                             QPushButton, QWidget, QFormLayout, \
-#                             QToolBar, QStatusBar, QSlider, \
-#                             QVBoxLayout, QTextEdit, QProgressBar, \
-#                             QComboBox, QLineEdit, QFileDialog, QMenuBar,QScrollArea
-                            
+                            QComboBox, QLineEdit, QFileDialog, QMenuBar,QScrollArea, QSplashScreen                           
 ## for faster binning of histogram
-## C version of hist
+## C version of hist (Relace by Numpy histogram)
 # from fast_histogram import histogram1d
 ## Keras import
 tensorflow_keras = True
 try:
     import tensorflow as tf
-    # import keras
     from keras.models import model_from_json
     from keras.callbacks import EarlyStopping, ModelCheckpoint
 except:
@@ -98,34 +93,34 @@ except:
 
 ## util library with MP function
 try:
-    from utils_lauenn import Symmetry,Lattice,\
-        simulatemultiplepatterns, worker_generation, chunker_list,call_global,\
-        read_hdf5, get_ipf_colour,predict_ubmatrix, predict,\
-        predict_preprocessMP, global_plots, texttstr, get_material_data,\
-        write_training_testing_dataMTEX, SGLattice, simulate_spots, mse_images, \
-        generate_classHKL, rmv_freq_class, array_generator, vali_array, array_generator_verify,\
-        model_arch_general, worker, LoggingCallback, predict_preprocessMP_vsingle,\
-        computeGnomonicImage, OrientationMatrix2Euler #save_sst
-except:
     from lauetoolsnn.utils_lauenn import Symmetry,Lattice,\
         simulatemultiplepatterns, worker_generation, chunker_list,call_global,\
-        read_hdf5, get_ipf_colour,predict_ubmatrix, predict,\
-        predict_preprocessMP, global_plots, texttstr, get_material_data,\
+        get_ipf_colour,predict_ubmatrix,\
+        predict_preprocessMP, global_plots, texttstr1, get_material_data,\
         write_training_testing_dataMTEX, SGLattice, simulate_spots, mse_images, \
         generate_classHKL, rmv_freq_class, array_generator, vali_array, array_generator_verify,\
-        model_arch_general, worker, LoggingCallback, predict_preprocessMP_vsingle,\
+        worker, predict_preprocessMP_vsingle,\
+        computeGnomonicImage, OrientationMatrix2Euler #save_sst
+except:
+    from utils_lauenn import Symmetry,Lattice,\
+        simulatemultiplepatterns, worker_generation, chunker_list,call_global,\
+        get_ipf_colour,predict_ubmatrix,\
+        predict_preprocessMP, global_plots, texttstr1, get_material_data,\
+        write_training_testing_dataMTEX, SGLattice, simulate_spots, mse_images, \
+        generate_classHKL, rmv_freq_class, array_generator, vali_array, array_generator_verify,\
+        worker, predict_preprocessMP_vsingle,\
         computeGnomonicImage, OrientationMatrix2Euler #save_sst
 
 try:
-    from lauetools import dict_LaueTools as dictLT
-    from lauetools import IOLaueTools as IOLT
-    from lauetools import generaltools as GT
-    from lauetools import LaueGeometry as Lgeo
-    from lauetools import readmccd as RMCCD
-    from lauetools import IOimagefile as IOimage
-    from lauetools import imageprocessing as ImProc
-    # from lauetools import CrystalParameters as CP
+    from lauetoolsnn.NNmodels import read_hdf5, model_arch_general, \
+                                    model_arch_CNN_DNN_optimized, user_defined_model, \
+                                    LoggingCallback, predict_DNN    
 except:
+    from NNmodels import read_hdf5, model_arch_general, \
+                            model_arch_CNN_DNN_optimized, user_defined_model, \
+                            LoggingCallback, predict_DNN
+
+try:
     import lauetoolsnn.lauetools.dict_LaueTools as dictLT
     import lauetoolsnn.lauetools.IOLaueTools as IOLT
     import lauetoolsnn.lauetools.generaltools as GT
@@ -133,8 +128,14 @@ except:
     import lauetoolsnn.lauetools.readmccd as RMCCD
     import lauetoolsnn.lauetools.IOimagefile as IOimage
     import lauetoolsnn.lauetools.imageprocessing as ImProc
-    # import lauetoolsnn.lauetools.CrystalParameters as CP
-
+except:
+    from lauetools import dict_LaueTools as dictLT
+    from lauetools import IOLaueTools as IOLT
+    from lauetools import generaltools as GT
+    from lauetools import LaueGeometry as Lgeo
+    from lauetools import readmccd as RMCCD
+    from lauetools import IOimagefile as IOimage
+    from lauetools import imageprocessing as ImProc
 ## GPU Nvidia drivers needs to be installed! Ughh
 ## if wish to use only CPU set the value to -1 else set it to 0 for GPU
 ## CPU training is suggested (as the model requires more RAM)
@@ -156,7 +157,8 @@ def resource_path(relative_path, verbose=0):
         print("Base path of the library: ",base_path)
     return os.path.join(base_path, relative_path)
 
-Logo = resource_path("lauetoolsnn_logo.png",  verbose=0)
+Logo = resource_path("lauetoolsnn_logo_bXM_2.png",  verbose=0)
+Logo_splash = resource_path("lauetoolsnn_splash_bXM_2.png",  verbose=0)
 
 default_initialization = True
 if default_initialization:
@@ -165,23 +167,23 @@ if default_initialization:
     material1_global = "Si" ## same key as used in LaueTools
     symmetry1_global = "cubic"
     prefix_global = ""
-    detectorparameters_global = [79.583,976.202,931.883,0.4411,0.3921]
+    detectorparameters_global = [79.50900, 977.9000, 931.8900, 0.3570000, 0.4370000]
     pixelsize_global = 0.0734 # 0.079142 #
     ccd_label_global = "sCMOS" #"MARCCD165" #"Cor"#
     dim1_global = 2018 #2048 #
     dim2_global = 2016 #2048 #
     emax_global = 23
     emin_global = 5
-    UB_matrix_global = 5
-    image_grid_globalx = 21
-    image_grid_globaly = 51
-    intensity_threshold_global = 100 #75 800
+    UB_matrix_global = 1
+    image_grid_globalx = 10
+    image_grid_globaly = 10
+    intensity_threshold_global = 500 #75 800
     boxsize_global = 15
     fit_peaks_gaussian_global = 1
     FitPixelDev_global = 15
-    strain_label_global = "NO" ## compute and plot strains
-    tolerance_strain = [0.35,0.25,0.15]   ## reduced tolerance for strain calculations
-    tolerance_strain1 = [0.35,0.25,0.15]
+    strain_label_global = "YES" ## compute and plot strains
+    tolerance_strain = [0.5,0.4,0.3,0.2]   ## reduced tolerance for strain calculations
+    tolerance_strain1 = [0.5,0.4,0.3,0.2]
     hkls_list_global = "[1,1,0],[1,0,0],[1,1,1]"#,[3,1,0],[5,2,9],[7,5,7],[7,5,9]"
     ##exp directory
     if material_global == material1_global:
@@ -212,7 +214,7 @@ if default_initialization:
     step_for_binning_global = 0.1
     nb_grains_per_lp_global = 2
     nb_grains_per_lp1_global = 2
-    grains_nb_simulate_global = 500
+    grains_nb_simulate_global = 1000
     include_scm_global = False
     batch_size_global = 50
     epochs_global = 5
@@ -221,9 +223,9 @@ if default_initialization:
     model_weight_file = None
     softmax_threshold_global = 0.80 # softmax_threshold
     mr_threshold_global = 0.95 # match rate threshold
-    cap_matchrate = 0.01 * 100 ## any UB matrix providing MR less than this will be ignored
-    coeff = 0.10 ## should be same as cap_matchrate or no?
-    coeff_overlap1212 = 0.15 ##15% spots overlap to avoid bad orientation detection
+    cap_matchrate = 0.05 * 100 ## any UB matrix providing MR less than this will be ignored
+    coeff = 0.20 ## should be same as cap_matchrate or no?
+    coeff_overlap1212 = 0.2 ##15% spots overlap to avoid bad orientation detection
     NumberMaxofFits = 5000 ### Max peaks per LP
     mode_spotCycle = "graphmode" ## slow: to cycle through all spots else: cycles through smartly selected pair of spots
     material0_limit1212 = 100000
@@ -284,9 +286,10 @@ class Window(QMainWindow):
         """Initializer."""
         super(Window, self).__init__()
         # QMainWindow.__init__(self)
-
+        self.flashSplash(Logo_splash)
+        time.sleep(2)
         app_icon = QtGui.QIcon()
-        app_icon.addFile(Logo, QtCore.QSize(16,16))
+        app_icon.addFile(Logo, QtCore.QSize(64,64))
         self.setWindowIcon(app_icon)
         
         if winx==None or winy==None:
@@ -332,6 +335,7 @@ class Window(QMainWindow):
         self.general_diff_rules1 = False
         self.strain_free_parameters = strain_free_parameters,
         self.additional_expression = additional_expression
+        self.architecture = "FFNN"
         # Add box layout, add table to box layout and add box layout to widget
         self.layout = QVBoxLayout()
         self._centralWidget = QWidget(self)
@@ -370,6 +374,11 @@ class Window(QMainWindow):
         config_setting.set('CALLER', 'additional_expression', ",".join(additional_expression))
         with open(filepath, 'w') as configfile:
             config_setting.write(configfile)
+    
+    def flashSplash(self, logo):
+        self.splash = QSplashScreen(QPixmap(logo))
+        self.splash.show()
+        QTimer.singleShot(2000, self.splash.close)
         
     def closeEvent(self, event):
         try:
@@ -397,8 +406,9 @@ class Window(QMainWindow):
         self.menu.addAction('&Exit', self.close)
     
     def getfileConfig(self):
-        filenameConfig = QFileDialog.getOpenFileName(self, 'Select the config text file', 
-                                                     resource_path("examples"))
+        filters = "Config file (*.lauenn)"
+        filenameConfig = QFileDialog.getOpenFileName(self, 'Select a lauenn config file with extension lauenn', 
+                                                     resource_path("examples"), filters)
         self.load_config_from_file(filenameConfig[0])
     
     def load_config_from_file(self, configFile):
@@ -446,7 +456,7 @@ class Window(QMainWindow):
                 self.SG = 162
             elif symmetry_global == "triclinic":
                 self.SG = 2
-            self.write_to_console("Space group is not defined, by default taking the higher order for the specified symmetry")
+            self.write_to_console("Space group is not defined, by default taking the higher order space group number for the specified symmetry")
         
         try:
             self.general_diff_rules = config.get('MATERIAL', 'general_diffraction_rules') == "true"
@@ -482,7 +492,7 @@ class Window(QMainWindow):
                     self.SG1 = 162
                 elif symmetry1_global == "triclinic":
                     self.SG1 = 2
-                self.write_to_console("Space group 1 is not defined, by default taking the higher order for the specified symmetry")
+                self.write_to_console("Space group 1 is not defined, by default taking the higher order space group number for the specified symmetry")
                 
             try:
                 self.general_diff_rules1 = config.get('MATERIAL', 'general_diffraction_rules1') == "true"
@@ -500,9 +510,16 @@ class Window(QMainWindow):
             material1_global = material_global
             symmetry1_global = symmetry_global         
         
-        prefix_global = str(config.get('GLOBAL_DIRECTORY', 'prefix'))
-        main_directory = str(config.get('GLOBAL_DIRECTORY', 'main_directory'))
-        
+        try:
+            prefix_global = str(config.get('GLOBAL_DIRECTORY', 'prefix'))
+        except:
+            prefix_global = ""
+            
+        try:
+            main_directory = str(config.get('GLOBAL_DIRECTORY', 'main_directory'))
+        except:
+            main_directory = resource_path("models",  verbose=0)
+            
         if main_directory == "default":
             main_directory = resource_path("models",  verbose=0)
         
@@ -555,41 +572,49 @@ class Window(QMainWindow):
         try:
             UB_matrix_global = int(config.get('PREDICTION', 'UB_matrix_to_detect'))
         except:
-            self.write_to_console("UB matrix to identify not defined, can be set in the Prediction window")
+            UB_matrix_global = 2
+            self.write_to_console("UB matrix to identify not defined, can be set in the Prediction window (setting default to 2)")
         
         try:
             image_grid_globalx = int(config.get('EXPERIMENT', 'image_grid_x'))
             image_grid_globaly = int(config.get('EXPERIMENT', 'image_grid_y'))
         except:
+            image_grid_globalx = 10
+            image_grid_globaly = 10
             self.write_to_console("Scan grid not defined, can be set in the Prediction window")
         
         try:
             softmax_threshold_global = float(config.get('PREDICTION', 'softmax_threshold_global'))
         except:
+            softmax_threshold_global = 0.8
             self.write_to_console("Softmax threshold not defined, using default 80%")
         self.softmax_threshold_global = softmax_threshold_global
         
         try:
             mr_threshold_global = float(config.get('PREDICTION', 'mr_threshold_global'))
         except:
+            mr_threshold_global = 0.95
             self.write_to_console("Matching rate threshold not defined, using default 95%")
         self.mr_threshold_global = mr_threshold_global
         
         try:
             coeff = float(config.get('PREDICTION', 'coeff'))
         except:
-            self.write_to_console("Coeff Overlap v0 not defined, using default 10%")
+            coeff = 0.25
+            self.write_to_console("Coeff Overlap v0 not defined, using default 25%")
         self.coeff=coeff
 
         try:
             coeff_overlap1212 = float(config.get('PREDICTION', 'coeff_overlap'))
         except:
-            self.write_to_console("Coeff Overlap not defined, using default 10%")
+            coeff_overlap1212 = 0.25
+            self.write_to_console("Coeff Overlap not defined, using default 25%")
         self.coeff_overlap=coeff_overlap1212
         
         try:
             mode_spotCycle = str(config.get('PREDICTION', 'mode_spotCycle'))
         except:
+            mode_spotCycle = "graphmode"
             self.write_to_console("Analysis mode not defined, using default graphmode, can be set in Prediction window")
         self.mode_spotCycleglobal = mode_spotCycle
         
@@ -605,9 +630,40 @@ class Window(QMainWindow):
             self.write_to_console("Max Nb of UB per material 1 not defined, using default maximum")
         self.material1_limit = material1_limit1212
         
-        intensity_threshold_global = float(config.get('PEAKSEARCH', 'intensity_threshold'))
-        boxsize_global = int(config.get('PEAKSEARCH', 'boxsize'))
+        try:
+            cap_matchrate = float(config.get('PREDICTION', 'cap_matchrate')) * 100
+        except:
+            self.write_to_console("Cap_Matching rate not defined, setting default value of 1%")
+        self.cap_matchrate=cap_matchrate
+        try:
+            tolerance_global = float(config.get('PREDICTION', 'matrix_tolerance'))
+        except:
+            tolerance_global = 0.5
+            self.write_to_console("Angle tolerance to detect grains not defined, using default 0.5")
+        try:
+            tolerance_global1 = float(config.get('PREDICTION', 'matrix_tolerance1'))
+        except:
+            tolerance_global1 = 0.5
+            self.write_to_console("Angle tolerance for Mat 1 to detect grains not defined, using default 0.5")
+        try:
+            use_previous_UBmatrix = config.get('PREDICTION', 'use_previous') == "true"
+        except:
+            use_previous_UBmatrix = False
+            self.write_to_console("Use previous solutions not defined, using default value False")
+        self.use_previous_UBmatrix = use_previous_UBmatrix
         
+        try:
+            intensity_threshold_global = float(config.get('PEAKSEARCH', 'intensity_threshold'))
+        except:
+            intensity_threshold_global = 150
+            self.write_to_console("intensity_threshold not defined, using default 150cts after BG correction")
+            
+        try:
+            boxsize_global = int(config.get('PEAKSEARCH', 'boxsize'))
+        except:
+            boxsize_global = 15
+            self.write_to_console("boxsize not defined, using default size of 15")
+            
         try:
             fit_peaks_gaussian_global = int(config.get('PEAKSEARCH', 'fit_peaks_gaussian'))
         except:
@@ -633,23 +689,39 @@ class Window(QMainWindow):
             else:
                 strain_label_global = "NO"
         except:
-            strain_label_global = "NO"
-            self.write_to_console("Strain computation not defined, default False")
+            strain_label_global = "YES"
+            self.write_to_console("Strain computation not defined, default True")
         
         try:
             tolerance_strain_temp = config.get('STRAINCALCULATION', 'tolerance_strain_refinement').split(",")
             tolerance_strain = [float(i) for i in tolerance_strain_temp]
         except:
-            self.write_to_console("Strain tolerance material 0 not defined")
+            tolerance_strain = list(np.linspace(tolerance_global, 0.2, 4))
+            self.write_to_console("Strain tolerance material 0 not defined, taking regular space steps")
         self.tolerance_strain = tolerance_strain
         
         try:
             tolerance_strain_temp1 = config.get('STRAINCALCULATION', 'tolerance_strain_refinement1').split(",")
             tolerance_strain1 = [float(i) for i in tolerance_strain_temp1]
         except:
-            self.write_to_console("Strain tolerance for material 1 not defined")
+            tolerance_strain1 = list(np.linspace(tolerance_global1, 0.2, 4))
+            self.write_to_console("Strain tolerance for material 1 not defined, taking regular space steps")
         self.tolerance_strain1 = tolerance_strain1
-
+        
+        try:
+            strain_free_parameters = config.get('STRAINCALCULATION', 'free_parameters').split(",")
+        except:
+            strain_free_parameters = ["rotx", "roty", "rotz", "alpha", "beta", "gamma", "b", "c"]
+            self.write_to_console("strain_free_parameters not defined; fixing only 'a' length by default")
+        self.strain_free_parameters = strain_free_parameters
+        
+        try:
+            additional_expression = config.get('STRAINCALCULATION', 'additional_expression').split(",")
+        except:
+            additional_expression = ["none"]
+            self.write_to_console("additional_expression not defined; none by default")
+        self.additional_expression = additional_expression  
+        
         try:
             hkls_list_global = config.get('POSTPROCESS', 'hkls_subsets')
         except:
@@ -739,6 +811,7 @@ class Window(QMainWindow):
         try:
             include_scm_global = config.get('TRAINING', 'include_small_misorientation') == "true"
         except:
+            include_scm_global = False
             self.write_to_console("Single crystal misorientation not defined, can be defined in the config window")
         try:
             misorientation_angle = float(config.get('TRAINING', 'misorientation_angle'))
@@ -756,24 +829,6 @@ class Window(QMainWindow):
             self.write_to_console("Epochs not defined, can be defined in the config window")
         
         try:
-            cap_matchrate = float(config.get('PREDICTION', 'cap_matchrate')) * 100
-        except:
-            self.write_to_console("Cap_Matching rate not defined, setting default value of 1%")
-        self.cap_matchrate=cap_matchrate
-        try:
-            tolerance_global = float(config.get('PREDICTION', 'matrix_tolerance'))
-        except:
-            self.write_to_console("Angle tolerance to detect grains not defined, using default 0.7")
-        try:
-            tolerance_global1 = float(config.get('PREDICTION', 'matrix_tolerance1'))
-        except:
-            self.write_to_console("Angle tolerance for Mat 1 to detect grains not defined, using default 0.7")
-        try:
-            use_previous_UBmatrix = config.get('PREDICTION', 'use_previous') == "true"
-        except:
-            self.write_to_console("Use previous solutions not defined, using default value False")
-        self.use_previous_UBmatrix = use_previous_UBmatrix
-        try:
             material_phase_always_present = config.get('DEVELOPMENT', 'material_phase_always_present')
         except:
             material_phase_always_present = "none"
@@ -783,6 +838,8 @@ class Window(QMainWindow):
         else:
             material_phase_always_present = int(material_phase_always_present)    
         self.material_phase_always_present = material_phase_always_present
+        
+        ## matrix_phase_always_present; add a matrix to the training dataset to be always present
         try:
             matrix_phase_always_present = config.get('DEVELOPMENT', 'matrix_phase_always_present')
         except:
@@ -844,19 +901,19 @@ class Window(QMainWindow):
         try:
             residues_threshold = config.get('CALLER', 'residues_threshold')
         except:
-            self.write_to_console("residues_threshold not defined, by default 0.25")
-            residues_threshold = 0.25
+            self.write_to_console("residues_threshold not defined, by default 0.5")
+            residues_threshold = 0.5
 
         try:
             nb_spots_global_threshold = config.get('CALLER', 'nb_spots_global_threshold')
         except:
-            self.write_to_console("nb_spots_global_threshold not defined, by default 8")
+            self.write_to_console("minimum number of spots for links not defined, by default 8")
             nb_spots_global_threshold = 8
         
         try:
             option_global = config.get('CALLER', 'option_global')
         except:
-            self.write_to_console("option_global not defined, by default v2")
+            self.write_to_console("option_global not defined, by default v2 for calulating the auto-links")
             option_global = "v2"
         
         try:
@@ -868,28 +925,14 @@ class Window(QMainWindow):
         try:
             nb_spots_consider_global = int(config.get('CALLER', 'nb_spots_consider'))
         except:
-            self.write_to_console("nb_spots_consider not defined, by default 500")
-            nb_spots_consider_global = 500
+            self.write_to_console("nb_spots_consider not defined, by default first 200")
+            nb_spots_consider_global = 200
             
         try:
             path_user_OM_global = config.get('CALLER', 'path_user_OM')
         except:
             self.write_to_console("path_user_OM not defined, by default None")
             path_user_OM_global = ""
-        
-        try:
-            strain_free_parameters = config.get('STRAINCALCULATION', 'free_parameters').split(",")
-        except:
-            strain_free_parameters = ["rotx", "roty", "rotz", "alpha", "beta", "gamma", "b", "c"]
-            self.write_to_console("strain_free_parameters not defined; fixing only 'a' length by default")
-        self.strain_free_parameters = strain_free_parameters
-        
-        try:
-            additional_expression = config.get('STRAINCALCULATION', 'additional_expression').split(",")
-        except:
-            additional_expression = ["none"]
-            self.write_to_console("additional_expression not defined; none by default")
-        self.additional_expression = additional_expression    
         
         config_setting = configparser.ConfigParser()
         filepath = resource_path('settings.ini')
@@ -961,17 +1004,21 @@ class Window(QMainWindow):
                 with open(self.save_directory+"//classhkl_data_nonpickled_"+self.material_+".pickle", "rb") as input_file:
                     hkl_all_class0 = cPickle.load(input_file)[0]
         except:
-            if self.material_ != self.material1_:
-                with open(self.save_directory+"//classhkl_data_"+self.material_+".pickle", "rb") as input_file:
-                    _, _, _, _, _, hkl_all_class0, _, _, symmetry = cPickle.load(input_file)
-
-                with open(self.save_directory+"//classhkl_data_"+self.material1_+".pickle", "rb") as input_file:
-                    _, _, _, _, _, hkl_all_class1, _, _, _ = cPickle.load(input_file)
-
-            else:
-                hkl_all_class1 = None
-                with open(self.save_directory+"//classhkl_data_"+self.material_+".pickle", "rb") as input_file:
-                    _, _, _, _, _, hkl_all_class0, _, _, _ = cPickle.load(input_file)
+            try:
+                if self.material_ != self.material1_:
+                    with open(self.save_directory+"//classhkl_data_"+self.material_+".pickle", "rb") as input_file:
+                        _, _, _, _, _, hkl_all_class0, _, _, symmetry = cPickle.load(input_file)
+    
+                    with open(self.save_directory+"//classhkl_data_"+self.material1_+".pickle", "rb") as input_file:
+                        _, _, _, _, _, hkl_all_class1, _, _, _ = cPickle.load(input_file)
+    
+                else:
+                    hkl_all_class1 = None
+                    with open(self.save_directory+"//classhkl_data_"+self.material_+".pickle", "rb") as input_file:
+                        _, _, _, _, _, hkl_all_class0, _, _, _ = cPickle.load(input_file)
+            except:
+                print("No model could be found for the defined material; please verify")
+                return
         
         w2 = AnotherWindowLivePrediction(self.state2, gui_state, 
                                          material_=self.material_, material1_=self.material1_, emin=self.emin, 
@@ -1029,7 +1076,7 @@ class Window(QMainWindow):
         self.train_nnhp.clicked.connect(self.grid_search_hyperparams)
         self.train_nnhp.setEnabled(False)
 
-        self.predict_lnn = QPushButton('Live Prediction with IPF map')
+        self.predict_lnn = QPushButton('Prediction of Laue data')
         self.predict_lnn.clicked.connect(self.show_window_liveprediction)
         self.predict_lnn.setEnabled(False)
         
@@ -1084,7 +1131,26 @@ class Window(QMainWindow):
                             "lr":  emit_dict["lr"],
                             "kc":  emit_dict["kc"],
                             "bc":  emit_dict["bc"],
+                            "architecture": emit_dict["architecture"],
                             }
+        
+        ## get the architecture of the model
+        self.architecture = self.input_params["architecture"]
+        self.write_to_console("Only FFNN model is optimized for the current indexation problem, other architecture works, but their efficieny is not well tested yet!")
+        self.write_to_console("Prediction routines for other architecture is not well tested, please verify them, falling back to the default FFNN model")
+        if self.input_params["architecture"] == "FFNN":
+            self.write_to_console("Using the classical inbuilt FFNN Feed Forward Neural Network model, for user defined model, please define a model in the NNmodels.py file (found in LauetoolsNN installation folder)")
+        elif self.input_params["architecture"] == "1D_CNN":
+            self.write_to_console("Using the 1D_CNN pure Convolution Neural Network model, for user defined model, please define a model in the NNmodels.py file (found in LauetoolsNN installation folder)")
+        elif self.input_params["architecture"] == "1D_CNN_DNN":
+            self.write_to_console("Using the 1D_CNN_DNN Convolution Network with Fully connected layers at the end, for user defined model, please define a model in the NNmodels.py file (found in LauetoolsNN installation folder)")
+        elif self.input_params["architecture"] == "User_defined":
+            self.write_to_console("Using the user defined model from the NNmodels.py file (found in LauetoolsNN installation folder)")
+        else:
+            self.write_to_console("Undefined Neural network model requested, falling back to default FFNN model")
+            self.architecture = "FFNN"
+            
+            
         ## Gray out options based on the mode_nn
         if self.input_params["mode_nn"] == "Generate Data & Train":
             self.write_to_console("Generate and Train the Model")
@@ -1098,8 +1164,6 @@ class Window(QMainWindow):
         elif self.input_params["mode_nn"] == "Predict":
             self.write_to_console("Model already exists? Lets Predict!")
             self.write_to_console("on the fly prediction (fingers crossed)")
-            # self.predict_nn.setEnabled(True)
-            # self.predict_nnc.setEnabled(True)
             self.predict_lnn.setEnabled(True)
 
         if self.input_params["grid_bool"] == "True":
@@ -1197,9 +1261,7 @@ class Window(QMainWindow):
             self.crystal = SGLattice(int(self.SG),a, b, c, alpha, beta, gamma)
             self.symmetry = Symmetry.triclinic
             self.lattice_material = Lattice.triclinic(a, b, c, alpha, beta, gamma)
-        # self.symmetry.operation_rotation = self.crystal._hklsym
-        # self.lattice_material.sglattice = self.crystal
-        
+
         if self.material_ != self.material1_:
             
             if self.SG1 == None:
@@ -1249,8 +1311,6 @@ class Window(QMainWindow):
                 self.crystal1 = SGLattice(int(self.SG1),a1, b1, c1, alpha1, beta1, gamma1)
                 self.symmetry1 = Symmetry.triclinic
                 self.lattice_material1 = Lattice.triclinic(a1, b1, c1, alpha1, beta1, gamma1)
-            # self.symmetry1.operation_rotation = self.crystal1._hklsym
-            # self.lattice_material1.sglattice = self.crystal1
         else:
             self.rules1 = None
             self.symmetry1 = None
@@ -1283,6 +1343,49 @@ class Window(QMainWindow):
                 
         self.write_to_console("Working directory :"+ self.save_directory)
         
+        ### update global parameters 
+        global material_global, symmetry_global, material1_global, symmetry1_global
+        global prefix_global, emin_global, emax_global
+        global detectorparameters_global, pixelsize_global, dim1_global, dim2_global
+        global modelfile_global, weightfile_global
+        global hkl_max_global, elements_global, freq_rmv_global, hkl_max1_global
+        global elements1_global, freq_rmv1_global, maximum_angle_to_search_global
+        global step_for_binning_global, nb_grains_per_lp_global, nb_grains_per_lp1_global
+        global grains_nb_simulate_global, include_scm_global, batch_size_global, epochs_global
+        
+        material_global = self.material_ ## same key as used in LaueTools
+        symmetry_global = self.input_params["symmetry"]
+        material1_global = self.material1_ ## same key as used in LaueTools
+        symmetry1_global = self.input_params["symmetry1"]
+        prefix_global = self.input_params["prefix"]
+        detectorparameters_global = self.input_params["detectorparameters"]
+        pixelsize_global = self.input_params["pixelsize"]
+        dim1_global = self.input_params["dim1"]
+        dim2_global = self.input_params["dim2"]
+        emax_global = self.input_params["emax"]
+        emin_global = self.input_params["emin"]
+        ##exp directory
+        modelfile_global = self.save_directory
+        if material_global == material1_global:
+            weightfile_global = modelfile_global + "//" + "model_" + material_global + ".h5"
+        else:
+            weightfile_global = modelfile_global + "//" + "model_" + material_global + "_" + material1_global + ".h5"
+
+        hkl_max_global = str(self.n)
+        elements_global = str(self.elements)
+        freq_rmv_global = self.freq_rmv
+        hkl_max1_global = str(self.n1)
+        elements1_global = str(self.elements1)
+        freq_rmv1_global = self.freq_rmv1
+        maximum_angle_to_search_global = self.maximum_angle_to_search
+        step_for_binning_global = self.step_for_binning
+        nb_grains_per_lp_global = self.nb_grains_per_lp
+        nb_grains_per_lp1_global = self.nb_grains_per_lp1
+        grains_nb_simulate_global = self.grains_nb_simulate
+        include_scm_global = self.include_scm
+        batch_size_global = self.input_params["batch_size"]
+        epochs_global = self.input_params["epochs"]
+
         ## Golbal log file
         now = datetime.datetime.fromtimestamp(GUI_START_TIME)
         c_time = now.strftime("%Y-%m-%d_%H-%M-%S")
@@ -1383,7 +1486,8 @@ class Window(QMainWindow):
     def load_dataset(self, material_="Cu", material1_="Cu", ang_maxx=18.,step=0.1, mode=0, 
                      nb_grains=1, nb_grains1=1, grains_nb_simulate=100, data_realism = False, 
                      detectorparameters=None, pixelsize=None, type_="training",
-                     var0 = 0, dim1=2048, dim2=2048, removeharmonics=1): 
+                     var0 = 0, dim1=2048, dim2=2048, removeharmonics=1,
+                     mat0_listHKl=None, mat1_listHKl=None): 
         """
         works for all symmetries now.
         """
@@ -1408,6 +1512,8 @@ class Window(QMainWindow):
             return None
 
         if var0==1:
+            ## add the list of hkl too in the get_material_data function
+            #TODO
             codebars, angbins = get_material_data(material_ = material_, ang_maxx = ang_maxx, step = step,
                                                        hkl_ref=n, classhkl=classhkl)
             loc = np.array([ij for ij in range(len(classhkl))])
@@ -1597,12 +1703,12 @@ class Window(QMainWindow):
             nb_grains1_list = list(range(nb_grains1+1))
             list_permute = list(itertools.product(nb_grains_list, nb_grains1_list))
             list_permute.pop(0) ## removing the 0,0 index
- 
+            # print(list_permute, nb_grains, nb_grains1)
             # Idea 2 Or generate a database upto n grain LP
             values = []
             for i in range(len(list_permute)):
                 ii, jj = list_permute[i]
-                
+                # print(ii,jj)
                 for j in range(grains_nb_simulate):
                     if data_realism:
                         ## three types of data augmentation to mimic reality ?
@@ -1661,7 +1767,9 @@ class Window(QMainWindow):
                                     self.general_diff_rules,
                                     self.crystal, 
                                     self.crystal1,
-                                    None])
+                                    None,
+                                    mat0_listHKl, 
+                                    mat1_listHKl])
                     
                     if self.matrix_phase_always_present != None and \
                         type_ != "testing_data":
@@ -1698,7 +1806,9 @@ class Window(QMainWindow):
                                             self.general_diff_rules,
                                             self.crystal, 
                                             self.crystal1,
-                                            self.matrix_phase_always_present])
+                                            self.matrix_phase_always_present,
+                                            mat0_listHKl, 
+                                            mat1_listHKl])
 
                         elif key_material_new == material1_ and jj == 0:
                             values.append([ii, 0, material_,material1_,
@@ -1730,7 +1840,10 @@ class Window(QMainWindow):
                                             self.general_diff_rules,
                                             self.crystal, 
                                             self.crystal1,
-                                            self.matrix_phase_always_present])
+                                            self.matrix_phase_always_present,
+                                            mat0_listHKl, 
+                                            mat1_listHKl])
+                # print(ii,jj)
                     
             chunks = chunker_list(values, self.ncpu)
             chunks_mp = list(chunks)
@@ -1836,7 +1949,9 @@ class Window(QMainWindow):
                                     self.general_diff_rules,
                                     self.crystal, 
                                     self.crystal1,
-                                    None])
+                                    None,
+                                    mat0_listHKl, 
+                                    mat1_listHKl])
                     
                     if self.matrix_phase_always_present != None and \
                         type_ != "testing_data":
@@ -1869,7 +1984,9 @@ class Window(QMainWindow):
                                         self.general_diff_rules,
                                         self.crystal, 
                                         self.crystal1,
-                                        self.matrix_phase_always_present])
+                                        self.matrix_phase_always_present,
+                                        mat0_listHKl, 
+                                        mat1_listHKl])
                     
             chunks = chunker_list(values, self.ncpu)
             chunks_mp = list(chunks)
@@ -1932,7 +2049,9 @@ class Window(QMainWindow):
                                         self.general_diff_rules,
                                         self.crystal, 
                                         self.crystal1,
-                                        None])
+                                        None,
+                                        mat0_listHKl, 
+                                        mat1_listHKl])
                 
                 if material_ != material1_:
                     seednumber = np.random.randint(1e6)
@@ -1963,7 +2082,9 @@ class Window(QMainWindow):
                                         self.general_diff_rules,
                                         self.crystal, 
                                         self.crystal1,
-                                        None])
+                                        None,
+                                        mat0_listHKl, 
+                                        mat1_listHKl])
                     
                     ### include slightly misoriented two crystals of different materails
                     seednumber = np.random.randint(1e6)
@@ -1994,7 +2115,9 @@ class Window(QMainWindow):
                                         self.general_diff_rules,
                                         self.crystal, 
                                         self.crystal1,
-                                        None])
+                                        None,
+                                        mat0_listHKl, 
+                                        mat1_listHKl])
                     
             chunks = chunker_list(values, self.ncpu)
             chunks_mp = list(chunks)
@@ -2061,34 +2184,43 @@ class Window(QMainWindow):
         # =============================================================================
         # VERY IMPORTANT; TAKES Significant time; verify again for other symmetries
         # =============================================================================
+        # mat0_listHKl = [(1,10,1),(11,15,12)]
+        self.mat0_listHKl = None
+        self.mat1_listHKl = None
         generate_classHKL(self.n, self.rules, self.lattice_material, self.symmetry, self.material_, \
              self.crystal, self.SG, self.general_diff_rules, self.save_directory, \
-                 self.write_to_console, self.progress, QApplication, self.maximum_angle_to_search, self.step_for_binning)
+                 self.write_to_console, self.progress, QApplication, self.maximum_angle_to_search, self.step_for_binning,
+                 self.mat0_listHKl)
         if self.material_ != self.material1_:
+            # mat1_listHKl = [(1,10,1),(11,15,12)]
+            self.mat1_listHKl = None
             generate_classHKL(self.n1, self.rules1, self.lattice_material1, self.symmetry1, self.material1_, \
                  self.crystal1, self.SG1, self.general_diff_rules1, self.save_directory, \
-                     self.write_to_console, self.progress, QApplication, self.maximum_angle_to_search, self.step_for_binning)
+                     self.write_to_console, self.progress, QApplication, self.maximum_angle_to_search, self.step_for_binning,
+                     self.mat1_listHKl)
         
         ############ GENERATING TRAINING DATA  
         self.update_progress = 0
         self.max_progress = 0
         self.load_dataset(material_=self.material_, material1_=self.material1_, ang_maxx=self.maximum_angle_to_search,
                           step=self.step_for_binning, mode=self.mode_of_analysis, 
-                          nb_grains=self.nb_grains_per_lp,
+                          nb_grains=self.nb_grains_per_lp,nb_grains1=self.nb_grains_per_lp1,
                           grains_nb_simulate=self.grains_nb_simulate,
                           data_realism = True, detectorparameters=self.detectorparameters, 
                           pixelsize=self.pixelsize, type_="training_data", var0=1,
-                          dim1=self.input_params["dim1"], dim2=self.input_params["dim2"], removeharmonics=1)
+                          dim1=self.input_params["dim1"], dim2=self.input_params["dim2"], removeharmonics=1,
+                          mat0_listHKl=self.mat0_listHKl, mat1_listHKl=self.mat1_listHKl)
         # ############ GENERATING TESTING DATA
         self.update_progress = 0
         self.max_progress = 0
         self.load_dataset(material_=self.material_, material1_=self.material1_, ang_maxx=self.maximum_angle_to_search,
                           step=self.step_for_binning, mode=self.mode_of_analysis, 
-                          nb_grains=self.nb_grains_per_lp,
+                          nb_grains=self.nb_grains_per_lp,nb_grains1=self.nb_grains_per_lp1,
                           grains_nb_simulate=self.grains_nb_simulate//self.factor,
                           data_realism = True, detectorparameters=self.detectorparameters, 
                           pixelsize=self.pixelsize, type_="testing_data", var0=0,
-                          dim1=self.input_params["dim1"], dim2=self.input_params["dim2"], removeharmonics=1)
+                          dim1=self.input_params["dim1"], dim2=self.input_params["dim2"], removeharmonics=1,
+                          mat0_listHKl=self.mat0_listHKl, mat1_listHKl=self.mat1_listHKl)
         
         ## write MTEX data with training orientation
         try:
@@ -2106,7 +2238,7 @@ class Window(QMainWindow):
         
         rmv_freq_class(self.freq_rmv, self.elements, self.freq_rmv1, self.elements1,\
                        self.save_directory, self.material_, self.material1_, self.write_to_console,\
-                       self.progress, QApplication)
+                       self.progress, QApplication, self.mat0_listHKl, self.mat1_listHKl)
         self.write_to_console("See the class occurances above and choose appropriate frequency removal parameter to train quickly the network by having few output classes!, if not continue as it is.")
         self.write_to_console("Press Train network button to Train")
         self.train_nn.setEnabled(True)
@@ -2117,7 +2249,7 @@ class Window(QMainWindow):
         self.train_nn.setEnabled(False)
         rmv_freq_class(self.freq_rmv, self.elements, self.freq_rmv1, self.elements1,\
                        self.save_directory, self.material_, self.material1_, self.write_to_console,\
-                       self.progress, QApplication)
+                       self.progress, QApplication, self.mat0_listHKl, self.mat1_listHKl)
         
         self.classhkl = np.load(self.save_directory+"//MOD_grain_classhkl_angbin.npz")["arr_0"]
         self.angbins = np.load(self.save_directory+"//MOD_grain_classhkl_angbin.npz")["arr_1"]
@@ -2125,10 +2257,50 @@ class Window(QMainWindow):
         with open(self.save_directory+"//class_weights.pickle", "rb") as input_file:
             class_weights = cPickle.load(input_file)
         self.class_weights = class_weights[0]
+        
         ## load model and train
-        self.model = model_arch_general(len(self.angbins)-1, len(self.classhkl),
-                                             kernel_coeff= self.kernel_coeff, bias_coeff=self.bias_coeff, 
-                                             lr=self.learning_rate, write_to_console=self.write_to_console)
+        if self.architecture == "FFNN":
+            self.model = model_arch_general(len(self.angbins)-1, len(self.classhkl),
+                                                 kernel_coeff= self.kernel_coeff, bias_coeff=self.bias_coeff, 
+                                                 lr=self.learning_rate, write_to_console=self.write_to_console)
+        elif self.architecture == "1D_CNN":
+            self.model = model_arch_CNN_DNN_optimized(len(self.angbins)-1, 
+                                                     layer_activation="relu", 
+                                                     output_activation="softmax",
+                                                     dropout=0.3,
+                                                     stride = [1,1],
+                                                     kernel_size = [5,5],
+                                                     pool_size=[2,2],
+                                                     CNN_layers = 3,
+                                                     CNN_filters = [32,64,128],
+                                                     DNN_layers = 0,
+                                                     DNN_filters = [100],
+                                                     output_neurons = len(self.classhkl),
+                                                     learning_rate = self.learning_rate,
+                                                     output="CNN",
+                                                     write_to_console=self.write_to_console, 
+                                                     verbose=1)
+        elif self.architecture == "1D_CNN_DNN":
+            self.model = model_arch_CNN_DNN_optimized(len(self.angbins)-1, 
+                                                     layer_activation="relu", 
+                                                     output_activation="softmax",
+                                                     dropout=0.3,
+                                                     stride = [1,1],
+                                                     kernel_size = [5,5],
+                                                     pool_size=[2,2],
+                                                     CNN_layers = 2,
+                                                     CNN_filters = [32,64],
+                                                     DNN_layers = 3,
+                                                     DNN_filters = [1000,500,100],
+                                                     output_neurons = len(self.classhkl),
+                                                     learning_rate = self.learning_rate,
+                                                     output="CNN_DNN",
+                                                     write_to_console=self.write_to_console, 
+                                                     verbose=1)
+        elif self.architecture == "User_defined":
+            self.model = user_defined_model(len(self.angbins)-1, len(self.classhkl),
+                                                 kernel_coeff= self.kernel_coeff, bias_coeff=self.bias_coeff, 
+                                                 lr=self.learning_rate, write_to_console=self.write_to_console)
         self.train_model()
         self.trialtoolbar1.setEnabled(True)
         self.predict_lnn.setEnabled(True)
@@ -2146,9 +2318,54 @@ class Window(QMainWindow):
                 self.class_weights = class_weights[0]
                 ## need to compile again if loaded from file, better to just call the class, if architecture is same
                 self.write_to_console("Constructing model")
-                self.model = model_arch_general(len(self.angbins)-1, len(self.classhkl),
-                                                     kernel_coeff= self.kernel_coeff, bias_coeff=self.bias_coeff, 
-                                                     lr=self.learning_rate, write_to_console=self.write_to_console)
+                # self.model = model_arch_general(len(self.angbins)-1, len(self.classhkl),
+                #                                      kernel_coeff= self.kernel_coeff, bias_coeff=self.bias_coeff, 
+                #                                      lr=self.learning_rate, write_to_console=self.write_to_console)
+                
+                if self.architecture == "FFNN":
+                    self.model = model_arch_general(len(self.angbins)-1, len(self.classhkl),
+                                                         kernel_coeff= self.kernel_coeff, bias_coeff=self.bias_coeff, 
+                                                         lr=self.learning_rate, write_to_console=self.write_to_console)
+                elif self.architecture == "1D_CNN":
+                    self.model = model_arch_CNN_DNN_optimized(len(self.angbins)-1, 
+                                                             layer_activation="relu", 
+                                                             output_activation="softmax",
+                                                             dropout=0.3,
+                                                             stride = [1,1],
+                                                             kernel_size = [5,5],
+                                                             pool_size=[2,2],
+                                                             CNN_layers = 3,
+                                                             CNN_filters = [32,64,128],
+                                                             DNN_layers = 0,
+                                                             DNN_filters = [100],
+                                                             output_neurons = len(self.classhkl),
+                                                             learning_rate = self.learning_rate,
+                                                             output="CNN",
+                                                             write_to_console=self.write_to_console, 
+                                                             verbose=1)
+                elif self.architecture == "1D_CNN_DNN":
+                    self.model = model_arch_CNN_DNN_optimized(len(self.angbins)-1, 
+                                                             layer_activation="relu", 
+                                                             output_activation="softmax",
+                                                             dropout=0.3,
+                                                             stride = [1,1],
+                                                             kernel_size = [5,5],
+                                                             pool_size=[2,2],
+                                                             CNN_layers = 2,
+                                                             CNN_filters = [32,64],
+                                                             DNN_layers = 3,
+                                                             DNN_filters = [1000,500,100],
+                                                             output_neurons = len(self.classhkl),
+                                                             learning_rate = self.learning_rate,
+                                                             output="CNN_DNN",
+                                                             write_to_console=self.write_to_console, 
+                                                             verbose=1)
+                elif self.architecture == "User_defined":
+                    self.model = user_defined_model(len(self.angbins)-1, len(self.classhkl),
+                                                         kernel_coeff= self.kernel_coeff, bias_coeff=self.bias_coeff, 
+                                                         lr=self.learning_rate, write_to_console=self.write_to_console)
+                
+                
                 list_of_files = glob.glob(self.save_directory+'//*.h5')
                 latest_file = max(list_of_files, key=os.path.getctime)
                 self.write_to_console("Taking the latest Weight file from the Folder: " + latest_file)
@@ -2387,6 +2604,7 @@ class MyPopup_image_v1(QWidget):
         self.ccd_label = ccd_label
         self.data = data
         self.pix_x, self.pix_y = [], []
+        self.peakXY = []
         self.scatter = None
         self.function_predict = function_predict
         self.image_no = image_no
@@ -2465,13 +2683,18 @@ class MyPopup_image_v1(QWidget):
             self.cap_matchrate123 = 0.2
             self.strain_free_parameters = ["rotx", "roty", "rotz", "alpha", "beta", "gamma", "b", "c"]
             self.additional_expression = ["none"]
-            print("error with setting config file")
+            print("error with setting config file, returning the settings to default values")
             
         self.corrected_data = None
         self.image_mode = QComboBox()
         mode_ = ["raw","bkg_corrected"]
         for s in mode_:
             self.image_mode.addItem(s)
+        
+        self.peaksearch_mode = QComboBox()
+        peaksearchmode_ = ["lauetools","LOG"]
+        for s in peaksearchmode_:
+            self.peaksearch_mode.addItem(s)
             
         self.btn_peak_search = QPushButton("Peak search")
         self.btn_peak_search.clicked.connect(self.peak_search)
@@ -2487,6 +2710,7 @@ class MyPopup_image_v1(QWidget):
         self.predicthkl.setEnabled(False)
         self.propagate_button.setEnabled(False)
         self.plothough.setEnabled(False)
+        
         ## add some buttons here for peak search and peak options
         ## and then predict again with neural network with its options
         ## send the data back to update the main variables
@@ -2494,6 +2718,7 @@ class MyPopup_image_v1(QWidget):
         formLayout.addRow('Background treatment expression', self.bkg_treatment)
         formLayout.addRow('Intensity; box size; pix dev', self.peak_params)
         formLayout.addRow('Image mode', self.image_mode)
+        formLayout.addRow('Peak search mode', self.peaksearch_mode)
         formLayout.addRow('softmax acc.; Mr threshold; 4hyperparams', self.predict_params)
         formLayout.addRow(self.btn_peak_search, self.predicthkl)
         formLayout.addRow(self.refresh_plot, self.plothough)
@@ -2578,47 +2803,138 @@ class MyPopup_image_v1(QWidget):
         ax[2].set_title('Detected lines')
         plt.tight_layout()
         plt.show()
-            
+    
+    
+    ## add LOG method of peak search from skimage routine
     def peak_search(self):
         self.propagate_button.setEnabled(False)
         intens = int(float(self.peak_params.text().split(",")[0]))
         bs = int(float(self.peak_params.text().split(",")[1]))
         pixdev = int(float(self.peak_params.text().split(",")[2]))
         bkg_treatment = self.bkg_treatment.text()
-        try:
-            peak_XY = RMCCD.PeakSearch(
-                                        self.file,
-                                        stackimageindex = -1,
-                                        CCDLabel=self.ccd_label,
-                                        NumberMaxofFits=5000,
-                                        PixelNearRadius=10,
-                                        removeedge=2,
-                                        IntensityThreshold=intens,
-                                        local_maxima_search_method=0,
-                                        boxsize=bs,
-                                        position_definition=1,
-                                        verbose=0,
-                                        fit_peaks_gaussian=1,
-                                        xtol=0.001,                
-                                        FitPixelDev=pixdev,
-                                        return_histo=0,
-                                        MinIntensity=0,
-                                        PeakSizeRange=(0.65,200),
-                                        write_execution_time=1,
-                                        Data_for_localMaxima = "auto_background",
-                                        formulaexpression=bkg_treatment,
-                                        Remove_BlackListedPeaks_fromfile=None,
-                                        reject_negative_baseline=True,
-                                        Fit_with_Data_for_localMaxima=False,
-                                        maxPixelDistanceRejection=15.0,
-                                        )
-            peak_XY = peak_XY[0]
-            self.pix_x, self.pix_y = peak_XY[:,0], peak_XY[:,1]
-            self.peakXY = peak_XY
-        except:
-            print("Error in Peak detection for "+ self.file)
-            self.pix_x, self.pix_y = [], []
-            self.peakXY = []
+        
+        if self.peaksearch_mode.currentText() == "lauetools":
+            try:
+                peak_XY = RMCCD.PeakSearch(
+                                            self.file,
+                                            stackimageindex = -1,
+                                            CCDLabel=self.ccd_label,
+                                            NumberMaxofFits=5000,
+                                            PixelNearRadius=10,
+                                            removeedge=2,
+                                            IntensityThreshold=intens,
+                                            local_maxima_search_method=0,
+                                            boxsize=bs,
+                                            position_definition=1,
+                                            verbose=0,
+                                            fit_peaks_gaussian=1,
+                                            xtol=0.001,                
+                                            FitPixelDev=pixdev,
+                                            return_histo=0,
+                                            MinIntensity=0,
+                                            PeakSizeRange=(0.65,200),
+                                            write_execution_time=1,
+                                            Data_for_localMaxima = "auto_background",
+                                            formulaexpression=bkg_treatment,
+                                            Remove_BlackListedPeaks_fromfile=None,
+                                            reject_negative_baseline=True,
+                                            Fit_with_Data_for_localMaxima=False,
+                                            maxPixelDistanceRejection=15.0,
+                                            )
+                peak_XY = peak_XY[0]
+                self.pix_x, self.pix_y = peak_XY[:,0], peak_XY[:,1]
+                self.peakXY = peak_XY
+            except:
+                print("Error in Peak detection for "+ self.file)
+                self.pix_x, self.pix_y = [], []
+                self.peakXY = []
+                
+        elif self.peaksearch_mode.currentText() == "LOG":
+            print("fitting peaks with LOG function of skimage")
+            from skimage.feature import blob_log
+            from skimage import morphology
+            import cv2
+
+            try:
+                data_8bit_raw = plt.imread(self.file)
+                backgroundimage = ImProc.compute_autobackground_image(data_8bit_raw, boxsizefilter=10)
+                # basic substraction
+                data_8bit_raw_bg = ImProc.computefilteredimage(data_8bit_raw, backgroundimage, 
+                                                               self.ccd_label, usemask=True, 
+                                                               formulaexpression="A-B")
+                data_8bit_raw = np.copy(data_8bit_raw_bg)
+                ## simple thresholding
+                bg_threshold = intens
+                data_8bit_raw[data_8bit_raw<bg_threshold] = 0
+                data_8bit_raw[data_8bit_raw>0] = 255
+                ### Grayscale image (0 to 255)
+                data_8bit_raw = data_8bit_raw.astype(np.uint8)
+    
+                data_8bit_raw_process = morphology.remove_small_objects(data_8bit_raw.astype(bool), 
+                                                                     min_size=5, connectivity=2).astype(int)
+                
+                data_8bit_raw = data_8bit_raw_process.astype(np.uint8)
+                data_8bit_raw[data_8bit_raw>0] = 255
+    
+                kernel = np.ones((3,3),np.uint8)
+                thresh = cv2.morphologyEx(data_8bit_raw, cv2.MORPH_OPEN, kernel, iterations = 2)
+    
+                kernel = np.ones((2,2),np.uint8)
+                thresh = cv2.erode(thresh, kernel, iterations = 1)
+    
+                if np.all(thresh==0):
+                    print("threshold of all image is zero")     
+    
+                minsigma, maxsigma = 2, 10
+                threshold_int = 0.01
+                #Lapacian of gaussian
+                blobs_log = blob_log(thresh, min_sigma=minsigma, max_sigma=maxsigma, 
+                                     num_sigma=10, threshold=threshold_int)# Compute radii in the 3rd column.
+                blobs_log[:, 2] = blobs_log[:, 2] * np.sqrt(2)
+                
+                # val_del = np.sqrt(2)+0.1
+                # ind_del_log = np.where(blobs_log[:,2]<val_del)[0]            
+                # blobs_log = np.delete(blobs_log, ind_del_log, axis=0)
+                
+                nbpeaks, _ = blobs_log.shape    
+                peak_X_nonfit = blobs_log[:,1]
+                peak_Y_nonfit = blobs_log[:,0]
+                # peak_I_nonfit = blobs_log[:,2]
+                # peaklist = np.vstack((peak_X_nonfit, peak_Y_nonfit, peak_I_nonfit)).T
+                # peak_XY = peaklist
+                
+                type_of_function = "gaussian"
+                position_start = "max"
+                
+                peaklist = np.vstack((peak_X_nonfit, peak_Y_nonfit)).T
+                peak_dataarray = RMCCD.fitoneimage_manypeaks(self.file,
+                                                            peaklist,
+                                                            boxsize=bs,
+                                                            stackimageindex=-1,
+                                                            CCDLabel=self.ccd_label,
+                                                            dirname=None,
+                                                            position_start=position_start,
+                                                            type_of_function=type_of_function,
+                                                            xtol=0.00001,
+                                                            FitPixelDev=pixdev,
+                                                            Ipixmax=None,
+                                                            MaxIntensity=65535, #e5,
+                                                            MinIntensity=0,
+                                                            PeakSizeRange=(0, 200),
+                                                            verbose=0,
+                                                            position_definition=1,
+                                                            NumberMaxofFits=5000,
+                                                            ComputeIpixmax=True,
+                                                            use_data_corrected=None,
+                                                            reject_negative_baseline=True)
+                peak_XY = peak_dataarray[0]
+    
+                self.pix_x, self.pix_y = peak_XY[:,0], peak_XY[:,1]
+                self.peakXY = peak_XY
+            except:
+                print("Error in Peak detection for "+ self.file)
+                self.pix_x, self.pix_y = [], []
+                self.peakXY = []
         self.draw_something()
         self.predicthkl.setEnabled(True)
         self.plothough.setEnabled(True)
@@ -2654,7 +2970,7 @@ class MyPopup_image_v1(QWidget):
     def draw_something(self):
         # Drop off the first y element, append a new one.
         self.canvas.axes.cla()
-        self.canvas.axes.set_title("Laue pattern of pixel x=%d, y=%d (file: %s)"%(self.iy,self.ix,self.file), loc='center', fontsize=8)
+        self.canvas.axes.set_title("Laue pattern of pixel x=%d, y=%d (peaks: %d) (file: %s)"%(self.iy,self.ix,len(self.pix_x),self.file), loc='center', fontsize=8)
         self.canvas.axes.set_ylabel(r'Y pixel',fontsize=8)
         self.canvas.axes.set_xlabel(r'X pixel', fontsize=8)
         if self.image_mode.currentText() == "raw":
@@ -2967,40 +3283,47 @@ class Window_allmap(QWidget):
             arr = np.random.randint(low = 0, high = 255, size = (self.lim_x, self.lim_y))
         else:
             arr = self.diff_data
-        self.canvas.axes.imshow(arr.astype('uint8'), origin='lower')        
+        # self.canvas.axes.imshow(arr.astype('uint8'), origin='lower')
+        self.canvas.axes.imshow(arr, origin='lower')
         self.canvas.draw()
     
     def calculate_image_similarity(self):
+        print("Preparing for image similarity calculation")
+        print("By computing the sum of squared difference between each bg. corrected Laue images")
         try:
             values = []
             count = 0 
-            total = self.diff_data.shape[0]*self.diff_data.shape[1]
+            total = self.diff_data.shape[0]*self.diff_data.shape[1]        
             for ix in range(self.diff_data.shape[0]):
                 for iy in range(self.diff_data.shape[1]):
                     if iy == 0 and ix == 0:
                         continue
-                    elif iy == 0 and ix != 0:
-                        image_no = ix
                     elif iy != 0 and ix == 0:
-                        image_no = iy * self.lim_y
+                        image_no = iy
+                    elif iy == 0 and ix != 0:
+                        image_no = ix * self.lim_y
                     elif iy != 0 and ix != 0:
-                        image_no = iy * self.lim_y + ix
-                
+                        image_no = ix * self.lim_y + iy
+                        
+                    if image_no >= total:
+                        continue
+                    
                     path = os.path.normpath(self.filenm[image_no].decode())                    
                     
                     if (image_no % self.lim_y == 0) and image_no != 0:
                         old_image = image_no - self.lim_y
                     elif (image_no % self.lim_y != 0):
                         old_image = image_no - 1 
+                                    
                     path1 = os.path.normpath(self.filenm[old_image].decode())
                     values.append([path, path1, ix, iy, self.ccd_label, True, count, total])
                     count += 1
-    
             with multip.Pool(cpu_count()) as pool:
                 results = [pool.apply_async(mse_images, p) for p in values]
                 for r in results:
                     r1 = r.get()
-                    self.diff_data[r1[2],r1[1]] = r1[0]
+                    self.diff_data[r1[1],r1[2]] = r1[0]
+            print("Image similarity computation finished")
         except:
             print("Error in calculation of image similarity module")
         self.draw_something()
@@ -3054,7 +3377,7 @@ class sample_config(QWidget):
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
         self._createDisplay() ## display screen
-        self.setDisplayText(texttstr)
+        self.setDisplayText(texttstr1)
 
     def _createDisplay(self):
         """Create the display."""
@@ -3382,7 +3705,7 @@ class AnotherWindowParams(QWidget):
             self.include_scm.addItem(s)
             
         self.architecture = QComboBox()
-        modes = ["Classical-inbuilt","from file"]
+        modes = ["FFNN","1D_CNN","1D_CNN_DNN","User_defined"]
         for s in modes:
             self.architecture.addItem(s)
             
@@ -3627,6 +3950,7 @@ class AnotherWindowParams(QWidget):
                             "lr":float(self.learningrate_rc.text().split(",")[0]),
                             "kc" : float(self.learningrate_rc.text().split(",")[1]),
                             "bc":float(self.learningrate_rc.text().split(",")[0]),
+                            "architecture":self.architecture.currentText()
                             }
         self.got_signal.emit(emit_dictionary)
         self.close() # close the window
@@ -3753,13 +4077,13 @@ class AnotherWindowLivePrediction(QWidget):#QWidget QScrollArea
             self.ccd_label.addItem(s)
             
         self.intensity_threshold = QLineEdit()
-        self.intensity_threshold.setText("1500")
+        self.intensity_threshold.setText("500")
         
         self.experimental_prefix = QLineEdit()
         self.experimental_prefix.setText("")
         
         self.boxsize = QLineEdit()
-        self.boxsize.setText("5")
+        self.boxsize.setText("15")
         
         self.hkl_plot = QLineEdit()
         self.hkl_plot.setText("[1,1,0],[1,1,1],[1,0,0]")
@@ -3789,7 +4113,7 @@ class AnotherWindowLivePrediction(QWidget):#QWidget QScrollArea
         choices = ["NO", "YES"]
         for s in choices:
             self.strain_plot_tech.addItem(s)
-            
+        
         ### default values here
         if tolerance_global != None:
             self.tolerance.setText(str(tolerance_global))
@@ -3872,7 +4196,49 @@ class AnotherWindowLivePrediction(QWidget):#QWidget QScrollArea
         self.menu = self.myQMenuBar.addMenu("&Menu")
         self.menu.addAction('&Load results', self.getresults)
         self.menu.addAction('&Refresh plots', self.refreshplots)
-    
+        self.menu.addAction('&Reinitialize', self.reinitialize)
+
+    def getfilesManual(self):
+        self.manualfiledirec = QFileDialog.getOpenFileName(self, 'Select a single experimental file (prefix and extension will be grabbed from it)')
+
+    def reinitialize(self):
+        self.manualfiledirec = None
+        
+        try:
+            self.getfilesManual()
+            print(self.manualfiledirec)
+        except:
+            print("Error: nothing selected")
+            return
+        
+        text_str = self.manualfiledirec[0]
+        
+        self.filenameDirec = os.path.dirname(text_str)
+        
+        _, tail = os.path.split(text_str)
+        
+        if tail.split(".")[-1] == "tif":
+            self.ccd_label.setCurrentText("sCMOS")
+        elif tail.split(".")[-1] == "cor" or tail.split(".")[-1] == "Cor" or tail.split(".")[-1] == "COR":
+            self.ccd_label.setCurrentText("cor")
+        else:
+            print("Extension of the selected experimental file not recognized or is not added to the list;")
+            print("Add the extension in Line 3983 of lauetoolsneuralnetwork.py file (reinitialize function)")
+            return
+        
+        self.experimental_prefix.setText(tail.split(".")[0][:-4])
+
+        
+        ## update matrix plot box?
+        if self.matrix_plot.count() < int(self.ubmat.text()):
+            for intmat in range(int(self.ubmat.text())):
+                if intmat == 0 or intmat < self.matrix_plot.count():
+                    continue
+                self.matrix_plot.addItem(str(intmat+1))
+            self.modify_array()
+        self.initialize_params()
+        self.initialize_plot()
+        
     def getresults(self,):
         self.btn_save.setEnabled(True)
         filenameResults = QFileDialog.getOpenFileName(self, 'Select the results pickle file')
@@ -3892,6 +4258,12 @@ class AnotherWindowLivePrediction(QWidget):#QWidget QScrollArea
         self.initialize_plot()
         
     def load_results(self, filename):
+        self.file_state=0
+        self.timermp1212 = QtCore.QTimer()
+        self.popups = []
+        self.old_UB_len = 1
+        self.initialize_params()
+        self.initialize_plot()
         try:
             with open(filename, "rb") as input_file:
                 self.best_match, \
@@ -3910,10 +4282,26 @@ class AnotherWindowLivePrediction(QWidget):#QWidget QScrollArea
                                 self.material1_, self.lattice, self.lattice1, \
                                     self.symmetry, self.symmetry1 = cPickle.load(input_file)
             except:
-                with open(filename, "rb") as input_file:
-                    self.mat_global, self.rotation_matrix, self.strain_matrix, self.strain_matrixs,\
-                        self.col, self.colx, self.coly, self.match_rate, self.files_treated,\
-                            self.lim_x, self.lim_y = cPickle.load(input_file)
+                try:
+                    with open(filename, "rb") as input_file:
+                        self.mat_global, self.rotation_matrix, self.strain_matrix, self.strain_matrixs,\
+                            self.col, self.colx, self.coly, self.match_rate, self.files_treated,\
+                                self.lim_x, self.lim_y = cPickle.load(input_file)
+                except:
+                    print("Script version results")
+                    ##script version results (only supports the first two phase)
+                    with open(filename, "rb") as input_file:
+                        self.best_match, \
+                        self.mat_global, self.rotation_matrix, self.strain_matrix, self.strain_matrixs,\
+                            self.col, self.colx, self.coly, self.match_rate, self.files_treated,\
+                                self.lim_x, self.lim_y, self.spots_len, self.iR_pix, self.fR_pix, self.material0_, \
+                                    self.lattice0, \
+                                        self.symmetry0, self.crystal0 = cPickle.load(input_file)
+                                        
+                    self.material_, self.material1_ = self.material0_[0], self.material0_[1]
+                    self.lattice, self.lattice1 = self.lattice0[0], self.lattice0[1]
+                    self.symmetry, self.symmetry1 = self.symmetry0[0], self.symmetry0[1]
+                    self.crystal, self.crystal1 = self.crystal0[0], self.crystal0[1]
                                 
         self.ubmat.setText(str(len(self.rotation_matrix)))
         ## update matrix plot box?
@@ -3964,6 +4352,7 @@ class AnotherWindowLivePrediction(QWidget):#QWidget QScrollArea
         if not os.path.exists(self.cor_file_directory):
             os.makedirs(self.cor_file_directory)
         self.initialize_plot()
+        self.refreshplots()
 
     def closeEvent(self, event):
         self.close
@@ -4045,49 +4434,57 @@ class AnotherWindowLivePrediction(QWidget):#QWidget QScrollArea
         self.strain_calculation = False
         if cond == "YES":
             self.strain_calculation = True
-        # =============================================================================
-        #         ## Multi-processing routine
-        # =============================================================================
-        ## Number of files to generate
-        grid_files = np.zeros((self.lim_x,self.lim_y))
-        self.filenm = np.chararray((self.lim_x,self.lim_y), itemsize=1000)
-        grid_files = grid_files.ravel()
-        self.filenm = self.filenm.ravel()
-        if self.ccd_label.currentText() == "Cor" or self.ccd_label.currentText() == "cor":
-            format_file = "cor"
-        else:
-            format_file = dictLT.dict_CCD[self.ccd_label.currentText()][7]
-        list_of_files = glob.glob(self.filenameDirec+'//'+self.experimental_prefix.text()+'*.'+format_file)
-        ## sort files
-        ## TypeError: '<' not supported between instances of 'str' and 'int'
-        list_of_files.sort(key=lambda var:[int(x) if x.isdigit() else x for x in re.findall(r'[^0-9]|[0-9]+', var)])
-
-        if len(list_of_files) == count_global:
-            for ii in range(len(list_of_files)):
-                grid_files[ii] = ii
-                self.filenm[ii] = list_of_files[ii]               
-        else:
-            print("expected "+str(count_global)+" files based on the XY grid ("+str(self.lim_x)+","+str(self.lim_y)+") defined by user")
-            print("But found "+str(len(list_of_files))+" files (either all data is not written yet or maybe XY grid definition is not proper)")
-            digits = len(str(count_global))
-            digits = max(digits,4)
-
-            for ii in range(count_global):
-                text = str(ii)
-                if ii < 10000:
-                    string = text.zfill(4)
-                else:
-                    string = text.zfill(5)
-                file_name_temp = self.filenameDirec+'//'+self.experimental_prefix.text()+string+'.'+format_file
-                ## store it in a grid 
-                self.filenm[ii] = file_name_temp
-            ## access grid files to process with multi-thread
         self.ncpu = cpu_count_user
-        self.cor_file_directory = self.filenameDirec + "//" + self.experimental_prefix.text()+"CORfiles"
-        if format_file in ['cor',"COR","Cor"]:
-            self.cor_file_directory = self.filenameDirec
-        if not os.path.exists(self.cor_file_directory):
-            os.makedirs(self.cor_file_directory)
+        try:
+            # =============================================================================
+            #         ## Multi-processing routine
+            # =============================================================================
+            ## Number of files to generate
+            grid_files = np.zeros((self.lim_x,self.lim_y))
+            self.filenm = np.chararray((self.lim_x,self.lim_y), itemsize=1000)
+            grid_files = grid_files.ravel()
+            self.filenm = self.filenm.ravel()
+            if self.ccd_label.currentText() == "Cor" or self.ccd_label.currentText() == "cor":
+                format_file = "cor"
+            else:
+                format_file = dictLT.dict_CCD[self.ccd_label.currentText()][7]
+            list_of_files = glob.glob(self.filenameDirec+'//'+self.experimental_prefix.text()+'*.'+format_file)
+            ## sort files
+            ## TypeError: '<' not supported between instances of 'str' and 'int'
+            list_of_files.sort(key=lambda var:[int(x) if x.isdigit() else x for x in re.findall(r'[^0-9]|[0-9]+', var)])
+    
+            if len(list_of_files) == count_global:
+                for ii in range(len(list_of_files)):
+                    grid_files[ii] = ii
+                    self.filenm[ii] = list_of_files[ii]               
+            else:
+                print("expected "+str(count_global)+" files based on the XY grid ("+str(self.lim_x)+","+str(self.lim_y)+") defined by user")
+                print("But found "+str(len(list_of_files))+" files (either all data is not written yet or maybe XY grid definition is not proper)")
+                digits = len(str(count_global))
+                digits = max(digits,4)
+    
+                for ii in range(count_global):
+                    text = str(ii)
+                    if ii < 10000:
+                        string = text.zfill(4)
+                    else:
+                        string = text.zfill(5)
+                    file_name_temp = self.filenameDirec+'//'+self.experimental_prefix.text()+string+'.'+format_file
+                    ## store it in a grid 
+                    self.filenm[ii] = file_name_temp
+                ## access grid files to process with multi-thread
+            self.cor_file_directory = self.filenameDirec + "//" + self.experimental_prefix.text()+"CORfiles"
+            if format_file in ['cor',"COR","Cor"]:
+                self.cor_file_directory = self.filenameDirec
+            if not os.path.exists(self.cor_file_directory):
+                os.makedirs(self.cor_file_directory)
+        except:
+            print("No directory for experimental data is defined; please reinitialize from the menu in the new window")
+            self.cor_file_directory = None
+            self.filenameDirec = None
+            self.filenm = np.chararray((10,10), itemsize=1000)
+            self.filenm = self.filenm.ravel()
+            
     
     def modify_array(self):
         if self.old_UB_len < int(self.ubmat.text()):            
@@ -4608,12 +5005,12 @@ class AnotherWindowLivePrediction(QWidget):#QWidget QScrollArea
         # w.setGeometry(QRect(100, 100, 400, 200))
         w.show()       
         self.popups.append(w)
-        
+
         #TODO cnt12 is 0 i.e. does not correspond to the image number
         # cnt_mpdata = cnt12
         # for i_mpdata in files_treated12:
         #     self.files_treated.append(i_mpdata)
-                        
+
         # for intmat_mpdata in range(int(self.ubmat.text())):
         #     self.check[cnt_mpdata,intmat_mpdata] = check12[0,intmat_mpdata]
         #     self.mat_global[intmat_mpdata][0][cnt_mpdata] = mat_global12[intmat_mpdata][0][0]
@@ -4629,7 +5026,7 @@ class AnotherWindowLivePrediction(QWidget):#QWidget QScrollArea
         #     self.fR_pix[intmat_mpdata][0][cnt_mpdata] = fR_pix12[intmat_mpdata][0][0]
         #     self.best_match[intmat_mpdata][0][cnt_mpdata] = best_match12[intmat_mpdata][0][0]
         # self.update_plot()
-                            
+
     def save_btn(self,):
         curr_time = time.time()
         now = datetime.datetime.fromtimestamp(curr_time)
@@ -4769,7 +5166,7 @@ class AnotherWindowLivePrediction(QWidget):#QWidget QScrollArea
                         "Phases    1",
                         str(round(lattice._lengths[0]*10,5))+";"+str(round(lattice._lengths[1]*10,5))+";"+\
                         str(round(lattice._lengths[2]*10,5))+"\t"+str(round(lattice._angles[0],5))+";"+\
-                            str(round(lattice._angles[1],5))+";"+str(round(lattice._angles[2],5))+"\t"+"Material1"+ "\t"+material0_LG+ "\t"+"????"+"\t"+"????",
+                        str(round(lattice._angles[1],5))+";"+str(round(lattice._angles[2],5))+"\t"+"Material1"+ "\t"+material0_LG+ "\t"+"????"+"\t"+"????",
                         "Phase    X    Y    Bands    Error    Euler1    Euler2    Euler3    MAD    BC    BS"]
             else:
                 lattice = self.lattice_
@@ -4792,10 +5189,10 @@ class AnotherWindowLivePrediction(QWidget):#QWidget QScrollArea
                         "Phases    2",
                         str(round(lattice._lengths[0]*10,5))+";"+str(round(lattice._lengths[1]*10,5))+";"+\
                         str(round(lattice._lengths[2]*10,5))+"\t"+str(round(lattice._angles[0],5))+";"+\
-                            str(round(lattice._angles[1],5))+";"+str(round(lattice._angles[2],5))+"\t"+"Material1"+ "\t"+material0_LG+ "\t"+"????"+"\t"+"????",
+                        str(round(lattice._angles[1],5))+";"+str(round(lattice._angles[2],5))+"\t"+"Material1"+ "\t"+material0_LG+ "\t"+"????"+"\t"+"????",
                         str(round(lattice1._lengths[0]*10,5))+";"+str(round(lattice1._lengths[1]*10,5))+";"+\
                         str(round(lattice1._lengths[2]*10,5))+"\t"+str(round(lattice1._angles[0],5))+";"+\
-                            str(round(lattice1._angles[1],5))+";"+str(round(lattice1._angles[2],5))+"\t"+"Material2"+ "\t"+material1_LG+ "\t"+"????"+"\t"+"????",
+                        str(round(lattice1._angles[1],5))+";"+str(round(lattice1._angles[2],5))+"\t"+"Material2"+ "\t"+material1_LG+ "\t"+"????"+"\t"+"????",
                         "Phase    X    Y    Bands    Error    Euler1    Euler2    Euler3    MAD    BC    BS"]
             # =================CALCULATION OF POSITION=====================================
             for index in range(len(self.rotation_matrix)):
@@ -4842,7 +5239,7 @@ class AnotherWindowLivePrediction(QWidget):#QWidget QScrollArea
                          match_rate_threshold=5, bins=30)
         except:
             print("Error in the global plots module")
-        
+
         # try:
         #     save_sst(self.lim_x, self.lim_y, self.strain_matrix, self.strain_matrixs, self.col, 
         #             self.colx, self.coly, self.match_rate, self.mat_global, self.spots_len, 
@@ -4852,7 +5249,7 @@ class AnotherWindowLivePrediction(QWidget):#QWidget QScrollArea
         #                   mac_axis = [0., 0., 1.], axis_text="Z", match_rate_threshold=5)
         # except:
         #     print("Error in the SST plots module")
-            
+
         ## HKL selective plots (in development)
         hkls_list = ast.literal_eval(self.hkl_plot.text())
         if self.ipf_axis.currentText() == "Z":
@@ -4867,7 +5264,7 @@ class AnotherWindowLivePrediction(QWidget):#QWidget QScrollArea
         #               self.iR_pix, self.fR_pix, save_directory_, self.material_, self.material1_,
         #               self.lattice_, self.lattice1_, self.symmetry, self.symmetry1, self.rotation_matrix, 
         #              hkls_list=hkls_list, angle=10., mac_axis = mac_axis, axis_text = self.ipf_axis.currentText())
-        
+
     def plot_pc(self):
         ## update matrix plot box?
         if self.matrix_plot.count() < int(self.ubmat.text()):
@@ -5319,7 +5716,7 @@ class AnotherWindowLivePrediction(QWidget):#QWidget QScrollArea
         grid_files = grid_files.ravel()
         self.filenm = self.filenm.ravel()
         count_global = self.lim_x * self.lim_y
-        
+
         if self.ccd_label.currentText() == "Cor" or self.ccd_label.currentText() == "cor":
             format_file = "cor"
         else:
@@ -5428,14 +5825,15 @@ class AnotherWindowLivePrediction(QWidget):#QWidget QScrollArea
                                       material_phase_always_present = self.material_phase_always_present,
                                       crystal=self.crystal,
                                       crystal1=self.crystal1,
-                                      strain_free_parameters=self.strain_free_parameters)         
+                                      strain_free_parameters=self.strain_free_parameters)
+            
         elif cond_mode == "MultiProcessing":
             try_prevs = False
             if self.mode_spotCycle == "beamtime":
                 try_prevs = True
             
-            valu12 = [[self.filenm[ii].decode(), ii,
-                       self.rotation_matrix,
+            valu12 = [[ self.filenm[ii].decode(), ii,
+                        self.rotation_matrix,
                         self.strain_matrix,
                         self.strain_matrixs,
                         self.col,
@@ -5753,8 +6151,7 @@ class AnotherWindowLivePrediction(QWidget):#QWidget QScrollArea
             ## reshape for the model to predict all spots at once
             codebars = np.array(codebars_all)
             ## Do prediction of all spots at once
-            # prediction = model.predict(codebars)
-            prediction = predict(codebars, wb, temp_key)
+            prediction = predict_DNN(codebars, wb, temp_key)
             max_pred = np.max(prediction, axis = 1)
             class_predicted = np.argmax(prediction, axis = 1)
             # print("Total spots attempted:"+str(len(spots_in_center)))
@@ -5873,12 +6270,12 @@ def toggle_selector(event):
 
 def toggle_selector1(event):
     print(' Key pressed.')
-    if event.key in ['Q', 'q'] and toggle_selector.RS.active:
+    if event.key in ['Q', 'q'] and toggle_selector1.RS.active:
         print(' LineSelector deactivated.')
-        toggle_selector.RS.set_active(False)
-    if event.key in ['A', 'a'] and not toggle_selector.RS.active:
+        toggle_selector1.RS.set_active(False)
+    if event.key in ['A', 'a'] and not toggle_selector1.RS.active:
         print(' LineSelector activated.')
-        toggle_selector.RS.set_active(True)
+        toggle_selector1.RS.set_active(True)
         
 def start():
     """ start of GUI for module launch"""

@@ -356,41 +356,6 @@ def constructMat(matrice_P, qq1, qq2, qq3prod):
 
     return matrixorient
 
-
-def constructMat_new(matrice_P, qq1, qq2, qq3prod):
-    """
-    Construction of rotation matrix from:
-    matrice_P  columns = (G1,G2,G1^G2)     in a*,b*,c* frame
-    qq1,qq2,qq3prod  respectively three vectors in  x,y,z space
-    """
-    qq3 = qq3prod / np.sqrt(np.dot(qq3prod, qq3prod))
-
-    Xq = np.array([qq1[0], qq2[0], qq3[0]])
-    Yq = np.array([qq1[1], qq2[1], qq3[1]])
-    Zq = np.array([qq1[2], qq2[2], qq3[2]])
-
-    firstline = lstsq(matrice_P, Xq)
-    secondline = lstsq(matrice_P, Yq)
-    thirdline = lstsq(matrice_P, Zq)
-
-    matrixorient = np.array([firstline[0] / np.sqrt(np.dot(firstline[0], firstline[0])),
-            secondline[0] / np.sqrt(np.dot(secondline[0], secondline[0])),
-            thirdline[0] / np.sqrt(np.dot(thirdline[0], thirdline[0]))])  # second line may be negative because of wrong Y sign chi ???
-
-    # print "matrixorient in constructMat_new()",matrixorient
-
-    # # more general lstsq
-    # big_matrice_P = np.zeros((9,9))
-    # big_matrice_P[:3,:3] = matrice_P
-    # big_matrice_P[3:6,3:6] = matrice_P
-    # big_matrice_P[6:,6:] = matrice_P
-
-    # threelines = lstsq(big_matrice_P,np.ravel(np.array([Xq,Yq,Zq])))
-    # print "threelines",threelines
-    # matrixorient = np.reshape(threelines[0],(3,3))
-    return matrixorient
-
-
 def givematorient(hkl1, coord1, hkl2, coord2, verbose="yes", frame="lauetools"):
     """
     Returns orientation matrix in chosen frame
@@ -474,13 +439,6 @@ def OrientMatrix_from_2hkl(hkl1, coord1, hkl2, coord2, B, verbose=0, frame="laue
         Upgrade of just above givematorient()
         take into account distorted structure by using Gstar (metric tensor of unit cell)
     """
-    # h1, k1, l1 = hkl1
-    # h2, k2, l2 = hkl2
-
-    #     print "hkl1", hkl1
-    #     print "hkl2", hkl2
-    #     print "B", B
-
     G1 = np.dot(B, np.array(hkl1))
     G2 = np.dot(B, np.array(hkl2))
     G3 = np.cross(G1, G2)
@@ -489,12 +447,7 @@ def OrientMatrix_from_2hkl(hkl1, coord1, hkl2, coord2, B, verbose=0, frame="laue
     normG2 = np.sqrt(np.dot(G2, G2))
     normG3 = np.sqrt(np.dot(G3, G3))
 
-    # print normG1,normG2,normG3
     matrice_P = np.array([G1 / normG1, G2 / normG2, G3 / normG3])
-
-    #     print "Gs", G1, G2, G3
-    #     print "matrice_P", matrice_P
-    # print "Angle G1,G2",np.arccos(np.dot(matrice_P[0],matrice_P[1]))*180./np.pi
 
     # similar matrix but with 2theta,chi coordinate
     twicetheta_1 = coord1[0]
@@ -507,24 +460,11 @@ def OrientMatrix_from_2hkl(hkl1, coord1, hkl2, coord2, B, verbose=0, frame="laue
     qq2 = LTGeo.unit_q(twicetheta_2, chi_2, frame=frame)
 
     qq3prod = np.cross(qq1, qq2)  # can be negative, we want to have finally a matrix with one eigenvalue of +1
-    qq3n = np.sqrt(np.dot(qq3prod, qq3prod)) * 1.0
-
-    # print "qs",qq1,qq2,qq3prod/qq3n
-    # print "Angle qq1,qq2",np.arccos(np.dot(qq1,qq2))*180./np.pi
-    # print "det of Gs",np.linalg.det(matrice_P)
-    # print "det of unit qs", np.linalg.det(np.array([qq1,qq2,qq3prod/qq3n]))
 
     # lstsq
-    matou = constructMat_new(matrice_P, qq1, qq2, qq3prod / qq3n)
-
-    # print "matou",matou
-    # print "determinant",np.linalg.det(matou)
-
-    # U,s,V= np.linalg.svd(matou)
-    # print "singular values of matou",s
+    matou = constructMat(matrice_P, qq1, qq2, qq3prod)
 
     valeurpropres = np.linalg.eigvals(matou)  # eigen values
-    # print "valeurpropres",valeurpropres
 
     # check number of eigen values that are close to 1.0 (+- 0.05)
     # (we want to have finally a matrix with one eigenvalue of +1, corresponding eigen vector is the rotation axis
@@ -538,9 +478,7 @@ def OrientMatrix_from_2hkl(hkl1, coord1, hkl2, coord2, B, verbose=0, frame="laue
         print("Estimated Orientation Matrix ---------------")
         print(matorient)
         print("--------------------------------------------")
-        # print "sol",sol
     return matorient
-
 
 def Allproposedmatrix(listrecogn, tolang):
     """

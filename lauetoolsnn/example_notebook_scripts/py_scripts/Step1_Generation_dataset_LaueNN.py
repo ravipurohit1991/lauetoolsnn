@@ -49,7 +49,7 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
                     "maximum_angle_to_search":120, ## Angle of radial distribution to reconstruct the histogram (in deg)
                     "step_for_binning" : 0.1,      ## bin widht of angular radial distribution in degree
                     "nb_grains_per_lp" : 5,        ## max grains to be generated in a Laue Image
-                    "grains_nb_simulate" : 500,    ## Number of orientations to generate (takes advantage of crystal symmetry)
+                    "grains_nb_simulate" : 100,    ## Number of orientations to generate (takes advantage of crystal symmetry)
                     ## Detector parameters (roughly) of the Experimental setup
                     ## Sample-detector distance, X center, Y center, two detector angles
                     "detectorparameters" :  [79.553,979.32,932.31,0.37,0.447], 

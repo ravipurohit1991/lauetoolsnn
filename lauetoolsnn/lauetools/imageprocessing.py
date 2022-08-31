@@ -733,8 +733,8 @@ def LocalMaxima_KernelConvolution(Data, framedim=(2048, 2048),
         # using th_peaklist which is float position
         pass
 
-    print("{} local maxima found after thresholding above {} (amplitude above local background)".format(
-            len(th_ar_amp), threshold_amp))
+    # print("{} local maxima found after thresholding above {} (amplitude above local background)".format(
+    #         len(th_ar_amp), threshold_amp))
 
     # NEW --- from method array shift!
     # remove duplicates (close points), the most intense pixel is kept
@@ -748,8 +748,8 @@ def LocalMaxima_KernelConvolution(Data, framedim=(2048, 2048),
     purged_ptp = np.delete(th_ar_ptp, index_todelete, axis=0)
 
     #     print 'shape of purged_ptp method conv.', purged_ptp.shape
-    print("{} local maxima found after removing duplicates (minimum intermaxima distance = {})".format(
-            len(purged_amp), pixeldistance))
+    # print("{} local maxima found after removing duplicates (minimum intermaxima distance = {})".format(
+    #         len(purged_amp), pixeldistance))
 
     # print "purged_pklist", purged_pklist
     #     print "shape(purged_pklist)", np.shape(purged_pklist)
@@ -819,12 +819,12 @@ def LocalMaxima_ShiftArrays(Data, framedim=(2048, 2048), IntensityThreshold=500,
 
     dataimage_ROI = Data
 
-    print("searching local maxima for non saturated consecutive pixels")
+    # print("searching local maxima for non saturated consecutive pixels")
 
     peak = localmaxima(dataimage_ROI, nb_of_shift, diags=1)
 
-    print("Done...!")
-    print(peak)
+    # print("Done...!")
+    # print(peak)
     # print "execution time : %f  secondes"%(ttt.time()-time_0)
 
     intensity_localmaxima = dataimage_ROI[peak]
@@ -899,8 +899,8 @@ def LocalMaxima_ShiftArrays(Data, framedim=(2048, 2048), IntensityThreshold=500,
         #     # print "meanpos",meanpos
 
         #     sat_pix_mean = meanpos
-    else:
-        print("No pixel saturation")
+    # else:
+    #     print("No pixel saturation")
     # SATURATION handling -(End) --------------------------------------------------------
 
     # x,y from localmaxima is a matter of convention
@@ -915,7 +915,7 @@ def LocalMaxima_ShiftArrays(Data, framedim=(2048, 2048), IntensityThreshold=500,
 
     # print peaklistfit2D
     # print peaklist[100:150]
-    print("{} local maxima have been found".format(len(peaklist)))
+    # print("{} local maxima have been found".format(len(peaklist)))
 
     # probing background and maximal intensity in boxsize
     #
@@ -940,8 +940,8 @@ def LocalMaxima_ShiftArrays(Data, framedim=(2048, 2048), IntensityThreshold=500,
     th_peaklist = peaklist_sorted[cond]
     th_ar_amp = amp_sorted[cond]
 
-    print("{} local maxima found after thresholding above {} amplitude above local background".format(
-            len(th_ar_amp), threshold_amp))
+    # print("{} local maxima found after thresholding above {} amplitude above local background".format(
+    #         len(th_ar_amp), threshold_amp))
 
     # remove duplicates (close points), the most intense pixel is kept
     # minimum distance between hot pixel
@@ -951,16 +951,16 @@ def LocalMaxima_ShiftArrays(Data, framedim=(2048, 2048), IntensityThreshold=500,
     purged_pklist, index_todelete = GT.purgeClosePoints2(th_peaklist, pixeldistance)
 
     purged_amp = np.delete(th_ar_amp, tuple(index_todelete))
-    print(
-        "{} local maxima found after removing duplicates (minimum intermaxima distance = {})".format(
-            len(purged_amp), pixeldistance))
+    # print(
+    #     "{} local maxima found after removing duplicates (minimum intermaxima distance = {})".format(
+    #         len(purged_amp), pixeldistance))
 
     # print "execution time : %f  secondes"%( ttt.time() - time_0)
 
     # merging different kind of peaks
     if sat_pix_mean is not None:
-        print("Merging saturated and normal peaks")
-        print("number of saturated peaks : ", np.shape(sat_pix_mean)[0])
+        # print("Merging saturated and normal peaks")
+        # print("number of saturated peaks : ", np.shape(sat_pix_mean)[0])
         purged_pklist = np.vstack((sat_pix_mean, purged_pklist))
 
     if 0:  # check if there are still close hot pixels
@@ -969,9 +969,9 @@ def LocalMaxima_ShiftArrays(Data, framedim=(2048, 2048), IntensityThreshold=500,
         sqdistmatrix_c = ssd.squareform(disttable_c)
         distmatrix_c = sqdistmatrix_c + np.eye(sqdistmatrix_c.shape[0]) * maxdistance_c
         # must be (array([], dtype=int64), array([], dtype=int64))
-        print("close hotpixels", np.where(distmatrix_c < pixeldistance))
+        # print("close hotpixels", np.where(distmatrix_c < pixeldistance))
     # print "purged_pklist", purged_pklist
-    print("shape(purged_pklist)", np.shape(purged_pklist))
+    # print("shape(purged_pklist)", np.shape(purged_pklist))
     npeaks = np.shape(purged_pklist)[0]
     Ipixmax = np.zeros(npeaks, dtype=int)
     # print np.shape(Data)

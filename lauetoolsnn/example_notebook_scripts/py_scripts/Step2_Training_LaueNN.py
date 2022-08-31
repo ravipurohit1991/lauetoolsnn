@@ -46,7 +46,7 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
                     "material1_": "Cu",            ## same key as used in dict_LaueTools
                     "prefix" : "",                 ## prefix for the folder to be created for training dataset
                     "nb_grains_per_lp" : 5,        ## max grains to be generated in a Laue Image
-                    "grains_nb_simulate" : 500,    ## Number of orientations to generate (takes advantage of crystal symmetry)
+                    "grains_nb_simulate" : 100,    ## Number of orientations to generate (takes advantage of crystal symmetry)
                     "batch_size":50,               ## batches of files to use while training
                     "epochs":5,                    ## number of epochs for training
                     }

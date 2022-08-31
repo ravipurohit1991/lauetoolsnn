@@ -17,7 +17,8 @@ if __name__ == "__main__":
     ## Import modules used for this Notebook
     import numpy as np
     import os
-    import multiprocessing 
+    import multiprocessing
+    from multiprocessing import cpu_count
     import time, datetime
     import glob, re
     ## if LaueToolsNN is properly installed
@@ -36,7 +37,7 @@ if __name__ == "__main__":
     import _pickle as cPickle
     from tqdm import tqdm
     
-    ncpu = 4 #cpu_count()
+    ncpu = cpu_count()
     print("Number of CPUs available : ", ncpu)
     
     # ## step 1: define material and path to data and trained model
@@ -119,7 +120,9 @@ if __name__ == "__main__":
     bkg_treatment = "A-B"
     
     ## get unit cell parameters and other details required for simulating Laue patterns
-    rules, symmetry, lattice_material,     crystal, SG, rules1, symmetry1,    lattice_material1, crystal1, SG1 = get_material_detail(material_, SG, symm_,
+    rules, symmetry, lattice_material,\
+        crystal, SG, rules1, symmetry1,\
+            lattice_material1, crystal1, SG1 = get_material_detail(material_, SG, symm_,
                                                                material1_, SG1, symm1_)
     
     ## get proper Laue group to compute the inverse pole figure colors and write MTEX output file for orientation analysis
@@ -335,36 +338,73 @@ if __name__ == "__main__":
                 crystal1,
                 strain_free_parameters] for ii in range(count_global)]
 
+    
+    pool = multiprocessing.Pool(ncpu)
+    pbar = tqdm(total=len(valu12))
+    
+    def update(*a):
+        pbar.update()
+    
+    all_results = []
+    for i in range(pbar.total):
+        results = pool.apply_async(new_MP_function, args=([valu12[i]]), callback=update)
+        all_results.append(results.get())            
+    pool.close()
+    pool.join()
+    
+    for r_message_mpdata in all_results:
+        strain_matrix_mpdata, strain_matrixs_mpdata, rotation_matrix_mpdata, col_mpdata,\
+        colx_mpdata, coly_mpdata, match_rate_mpdata, mat_global_mpdata,\
+            cnt_mpdata, meta_mpdata, files_treated_mpdata, spots_len_mpdata, \
+                iR_pixel_mpdata, fR_pixel_mpdata, best_match_mpdata, check_mpdata = r_message_mpdata
 
-    ## Step 4: Launch multiprocessing prediction and orientation matrix calculation
-    args = zip(valu12)
-    with multiprocessing.Pool(ncpu) as pool:
-        results = pool.starmap(new_MP_function, tqdm(args, total=len(valu12)))
+        for i_mpdata in files_treated_mpdata:
+            files_treated.append(i_mpdata)
+
+        for intmat_mpdata in range(int(ubmat)):
+            check[cnt_mpdata,intmat_mpdata] = check_mpdata[cnt_mpdata,intmat_mpdata]
+            mat_global[intmat_mpdata][0][cnt_mpdata] = mat_global_mpdata[intmat_mpdata][0][cnt_mpdata]
+            strain_matrix[intmat_mpdata][0][cnt_mpdata,:,:] = strain_matrix_mpdata[intmat_mpdata][0][cnt_mpdata,:,:]
+            strain_matrixs[intmat_mpdata][0][cnt_mpdata,:,:] = strain_matrixs_mpdata[intmat_mpdata][0][cnt_mpdata,:,:]
+            rotation_matrix[intmat_mpdata][0][cnt_mpdata,:,:] = rotation_matrix_mpdata[intmat_mpdata][0][cnt_mpdata,:,:]
+            col[intmat_mpdata][0][cnt_mpdata,:] = col_mpdata[intmat_mpdata][0][cnt_mpdata,:]
+            colx[intmat_mpdata][0][cnt_mpdata,:] = colx_mpdata[intmat_mpdata][0][cnt_mpdata,:]
+            coly[intmat_mpdata][0][cnt_mpdata,:] = coly_mpdata[intmat_mpdata][0][cnt_mpdata,:]
+            match_rate[intmat_mpdata][0][cnt_mpdata] = match_rate_mpdata[intmat_mpdata][0][cnt_mpdata]
+            spots_len[intmat_mpdata][0][cnt_mpdata] = spots_len_mpdata[intmat_mpdata][0][cnt_mpdata]
+            iR_pix[intmat_mpdata][0][cnt_mpdata] = iR_pixel_mpdata[intmat_mpdata][0][cnt_mpdata]
+            fR_pix[intmat_mpdata][0][cnt_mpdata] = fR_pixel_mpdata[intmat_mpdata][0][cnt_mpdata]
+            best_match[intmat_mpdata][0][cnt_mpdata] = best_match_mpdata[intmat_mpdata][0][cnt_mpdata]
+
+    # ## Step 4: Launch multiprocessing prediction and orientation matrix calculation
+    # args = zip(valu12)
+    # with multiprocessing.Pool(ncpu) as pool:
+    #     results = pool.starmap(new_MP_function, tqdm(args, total=len(valu12)))
         
-        for r in results:
-            r_message_mpdata = r#.get()
-            strain_matrix_mpdata, strain_matrixs_mpdata, rotation_matrix_mpdata, col_mpdata,\
-            colx_mpdata, coly_mpdata, match_rate_mpdata, mat_global_mpdata,\
-                cnt_mpdata, meta_mpdata, files_treated_mpdata, spots_len_mpdata, \
-                    iR_pixel_mpdata, fR_pixel_mpdata, best_match_mpdata, check_mpdata = r_message_mpdata
+    #     for r in results:
+    #         r_message_mpdata = r#.get()
+    #         strain_matrix_mpdata, strain_matrixs_mpdata, rotation_matrix_mpdata, col_mpdata,\
+    #         colx_mpdata, coly_mpdata, match_rate_mpdata, mat_global_mpdata,\
+    #             cnt_mpdata, meta_mpdata, files_treated_mpdata, spots_len_mpdata, \
+    #                 iR_pixel_mpdata, fR_pixel_mpdata, best_match_mpdata, check_mpdata = r_message_mpdata
     
-            for i_mpdata in files_treated_mpdata:
-                files_treated.append(i_mpdata)
+    #         for i_mpdata in files_treated_mpdata:
+    #             files_treated.append(i_mpdata)
     
-            for intmat_mpdata in range(int(ubmat)):
-                check[cnt_mpdata,intmat_mpdata] = check_mpdata[cnt_mpdata,intmat_mpdata]
-                mat_global[intmat_mpdata][0][cnt_mpdata] = mat_global_mpdata[intmat_mpdata][0][cnt_mpdata]
-                strain_matrix[intmat_mpdata][0][cnt_mpdata,:,:] = strain_matrix_mpdata[intmat_mpdata][0][cnt_mpdata,:,:]
-                strain_matrixs[intmat_mpdata][0][cnt_mpdata,:,:] = strain_matrixs_mpdata[intmat_mpdata][0][cnt_mpdata,:,:]
-                rotation_matrix[intmat_mpdata][0][cnt_mpdata,:,:] = rotation_matrix_mpdata[intmat_mpdata][0][cnt_mpdata,:,:]
-                col[intmat_mpdata][0][cnt_mpdata,:] = col_mpdata[intmat_mpdata][0][cnt_mpdata,:]
-                colx[intmat_mpdata][0][cnt_mpdata,:] = colx_mpdata[intmat_mpdata][0][cnt_mpdata,:]
-                coly[intmat_mpdata][0][cnt_mpdata,:] = coly_mpdata[intmat_mpdata][0][cnt_mpdata,:]
-                match_rate[intmat_mpdata][0][cnt_mpdata] = match_rate_mpdata[intmat_mpdata][0][cnt_mpdata]
-                spots_len[intmat_mpdata][0][cnt_mpdata] = spots_len_mpdata[intmat_mpdata][0][cnt_mpdata]
-                iR_pix[intmat_mpdata][0][cnt_mpdata] = iR_pixel_mpdata[intmat_mpdata][0][cnt_mpdata]
-                fR_pix[intmat_mpdata][0][cnt_mpdata] = fR_pixel_mpdata[intmat_mpdata][0][cnt_mpdata]
-                best_match[intmat_mpdata][0][cnt_mpdata] = best_match_mpdata[intmat_mpdata][0][cnt_mpdata]
+    #         for intmat_mpdata in range(int(ubmat)):
+    #             check[cnt_mpdata,intmat_mpdata] = check_mpdata[cnt_mpdata,intmat_mpdata]
+    #             mat_global[intmat_mpdata][0][cnt_mpdata] = mat_global_mpdata[intmat_mpdata][0][cnt_mpdata]
+    #             strain_matrix[intmat_mpdata][0][cnt_mpdata,:,:] = strain_matrix_mpdata[intmat_mpdata][0][cnt_mpdata,:,:]
+    #             strain_matrixs[intmat_mpdata][0][cnt_mpdata,:,:] = strain_matrixs_mpdata[intmat_mpdata][0][cnt_mpdata,:,:]
+    #             rotation_matrix[intmat_mpdata][0][cnt_mpdata,:,:] = rotation_matrix_mpdata[intmat_mpdata][0][cnt_mpdata,:,:]
+    #             col[intmat_mpdata][0][cnt_mpdata,:] = col_mpdata[intmat_mpdata][0][cnt_mpdata,:]
+    #             colx[intmat_mpdata][0][cnt_mpdata,:] = colx_mpdata[intmat_mpdata][0][cnt_mpdata,:]
+    #             coly[intmat_mpdata][0][cnt_mpdata,:] = coly_mpdata[intmat_mpdata][0][cnt_mpdata,:]
+    #             match_rate[intmat_mpdata][0][cnt_mpdata] = match_rate_mpdata[intmat_mpdata][0][cnt_mpdata]
+    #             spots_len[intmat_mpdata][0][cnt_mpdata] = spots_len_mpdata[intmat_mpdata][0][cnt_mpdata]
+    #             iR_pix[intmat_mpdata][0][cnt_mpdata] = iR_pixel_mpdata[intmat_mpdata][0][cnt_mpdata]
+    #             fR_pix[intmat_mpdata][0][cnt_mpdata] = fR_pixel_mpdata[intmat_mpdata][0][cnt_mpdata]
+    #             best_match[intmat_mpdata][0][cnt_mpdata] = best_match_mpdata[intmat_mpdata][0][cnt_mpdata]
 
 
 

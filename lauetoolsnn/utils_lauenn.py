@@ -38,6 +38,9 @@ import scipy
 import _pickle as cPickle
 import configparser
 
+from multiprocessing import Process, Queue, cpu_count
+from tqdm import tqdm
+
 from skimage.transform import (hough_line, hough_line_peaks)
 # =============================================================================
 # Additonal networkx module
@@ -45,17 +48,6 @@ import networkx as nx
 # =============================================================================
 ## LaueTools import
 try:
-    from lauetools import dict_LaueTools as dictLT
-    from lauetools import IOLaueTools as IOLT
-    from lauetools import generaltools as GT
-    from lauetools import CrystalParameters as CP
-    from lauetools import lauecore as LT
-    from lauetools import LaueGeometry as Lgeo
-    from lauetools import readmccd as RMCCD
-    from lauetools import FitOrient as FitO
-    from lauetools import findorient as FindO
-    from lauetools import IOimagefile as IOimage   
-except:
     import lauetoolsnn.lauetools.dict_LaueTools as dictLT
     import lauetoolsnn.lauetools.IOLaueTools as IOLT
     import lauetoolsnn.lauetools.generaltools as GT
@@ -66,6 +58,19 @@ except:
     import lauetoolsnn.lauetools.FitOrient as FitO
     import lauetoolsnn.lauetools.findorient as FindO
     import lauetoolsnn.lauetools.IOimagefile as IOimage
+    import lauetoolsnn.lauetools.imageprocessing as ImProc
+except:
+    from lauetools import dict_LaueTools as dictLT
+    from lauetools import IOLaueTools as IOLT
+    from lauetools import generaltools as GT
+    from lauetools import CrystalParameters as CP
+    from lauetools import lauecore as LT
+    from lauetools import LaueGeometry as Lgeo
+    from lauetools import readmccd as RMCCD
+    from lauetools import FitOrient as FitO
+    from lauetools import findorient as FindO
+    from lauetools import IOimagefile as IOimage
+    from lauetools import imageprocessing as ImProc
 
 from collections import OrderedDict
 from math import cos, radians, sin, sqrt
@@ -78,27 +83,19 @@ import re
 tensorflow_keras = True
 try:
     import tensorflow as tf
-    import keras
-    from keras.models import Sequential
-    from tensorflow.keras.callbacks import Callback
-    from keras.layers import Dense, Activation, Dropout
+    # import keras
+    # from keras.models import Sequential
+    # from tensorflow.keras.callbacks import Callback
+    # from keras.layers import Dense, Activation, Dropout
     from tensorflow.keras.utils import to_categorical
-    from keras.regularizers import l2
+    # from keras.regularizers import l2
+    # from keras.models import model_from_json
     # from tf.keras.layers.normalization import BatchNormalization
 except:
-    print("tensorflow not loaded")
+    print("tensorflow not loaded; Training and prediction will not work")
     tensorflow_keras = False
-    
-try:
-    from wyckpos import wp, eqhkl_default, eqhkl_custom, sgrp_sym, sgrp_name,\
-                            sgrp_params
-except:
-    from lauetoolsnn.wyckpos import wp, eqhkl_default, eqhkl_custom, sgrp_sym, sgrp_name,\
-                            sgrp_params
-## for faster binning of histogram
-## C version of hist
-# from fast_histogram import histogram1d
-import h5py
+
+# import h5py
 
 ## GPU Nvidia drivers needs to be installed! Ughh
 ## if wish to use only CPU set the value to -1 else set it to 0 for GPU
@@ -114,6 +111,15 @@ except:
     pass
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
+try:
+    from lauetoolsnn.lauetools.wyckpos_lauetools import wp, eqhkl_default, eqhkl_custom, sgrp_sym, sgrp_name,\
+                            sgrp_params, testhklcond_generalrules_array
+    from lauetoolsnn.NNmodels import predict_DNN, predict_DNN_onelayer, predict_CNN_DNN, predict_with_file, read_hdf5
+except:
+    from lauetools.wyckpos_lauetools import wp, eqhkl_default, eqhkl_custom, sgrp_sym, sgrp_name,\
+                            sgrp_params, testhklcond_generalrules_array
+    from NNmodels import predict_DNN, predict_DNN_onelayer, predict_CNN_DNN, predict_with_file, read_hdf5
+    
 def resource_path(relative_path, verbose=0):
     """ Get absolute path to resource, works for dev and for PyInstaller """
     base_path = os.path.dirname(__file__)
@@ -121,16 +127,6 @@ def resource_path(relative_path, verbose=0):
         print("Base path of the library: ",base_path)
     return os.path.join(base_path, relative_path)
 
-metricsNN = [
-            keras.metrics.FalseNegatives(name="fn"),
-            keras.metrics.FalsePositives(name="fp"),
-            keras.metrics.TrueNegatives(name="tn"),
-            keras.metrics.TruePositives(name="tp"),
-            keras.metrics.Precision(name="precision"),
-            keras.metrics.Recall(name="accuracy"),
-            ]
-
-ACCEPTABLE_FORMATS = [".npz"]
 gui_state = np.random.randint(1e6)
 DIGITS = int(abs(np.log10(1e-08)))
 CST_ENERGYKEV = 12.398
@@ -138,7 +134,8 @@ ACCEPTABLE_FORMATS = [".npz"]
 
 hklcond_group = re.compile(r'([-hkil0-9\(\)]+): ([-+hklnor1-8=\s,]+)(?:, |$)')
 DEG = np.pi / 180.0
-dist_threshold = 50
+dist_threshold = 50 ## For hough transform
+
 # residues_threshold=0.5
 # nb_spots_global_threshold=8
 # option_global = "v2"
@@ -151,8 +148,10 @@ dist_threshold = 50
 # if you wish to plot the training and testing dataset images
 plot_images = False
 try:
+    ##make sure you have adjustText library
     from adjustText import adjust_text
 except:
+    print("adjustText library not installed")
     plot_images = False
     
 
@@ -183,7 +182,8 @@ def call_global():
     
 def rmv_freq_class(freq_rmv = 0, elements="all", freq_rmv1 = 0, elements1="all",
                    save_directory="", material_=None, material1_=None, write_to_console=None,
-                   progress=None, qapp=None):
+                   progress=None, qapp=None, list_hkl_keep=None, list_hkl_keep1=None):
+    
     classhkl0 = np.load(save_directory+"//grain_classhkl_angbin.npz")["arr_0"]
     if write_to_console != None:
         write_to_console("First material index length: " + str(len(classhkl0)))
@@ -232,11 +232,49 @@ def rmv_freq_class(freq_rmv = 0, elements="all", freq_rmv1 = 0, elements1="all",
     else:
         most_common0 = collections.Counter(trainy_mat0).most_common()[:elements]
         
+    ##N simpler approach
+    ## include hkl family search also #TODO
+    if list_hkl_keep != None:
+        all_common = np.array(collections.Counter(np.array(trainy_mat0)).most_common())
+        for ih, ik, il in list_hkl_keep:
+            conda= classhkl[:,0]==ih
+            condb= classhkl[:,1]==ik
+            condc= classhkl[:,2]==il
+            indd123 = np.where(conda*condb*condc == True)[0]
+            if len(indd123) == 0:
+                print("Demanded HKL not found;",ih,ik,il)
+                continue
+            for ihkl in indd123:
+                if ihkl in all_common[:,0]:
+                    inind = np.where(all_common[:,0]==ihkl)[0]
+                    print("Demanded hkl",ih,ik,il," has the following occurance",all_common[inind,1])
+                    to_add = (all_common[inind,0][0], all_common[inind,1][0])
+                    if to_add not in most_common0:
+                        most_common0.append(to_add)    
+
     if material_ != material1_:
         if elements1 =="all":
             most_common1 = collections.Counter(trainy_mat1).most_common()
         else:
             most_common1 = collections.Counter(trainy_mat1).most_common()[:elements1]
+            
+        if list_hkl_keep1 != None:
+            all_common = np.array(collections.Counter(np.array(trainy_mat1)).most_common())
+            for ih, ik, il in list_hkl_keep1:
+                conda= classhkl[:,0]==ih
+                condb= classhkl[:,1]==ik
+                condc= classhkl[:,2]==il
+                indd123 = np.where(conda*condb*condc == True)[0]
+                if len(indd123) == 0:
+                    print("Demanded HKL not found;",ih,ik,il)
+                    continue
+                for ihkl in indd123:
+                    if ihkl in all_common[:,0]:
+                        inind = np.where(all_common[:,0]==ihkl)[0]
+                        print("Demanded hkl",ih,ik,il," has the following occurance",all_common[inind,1])
+                        to_add = (all_common[inind,0][0], all_common[inind,1][0])
+                        if to_add not in most_common1:
+                            most_common1.append(to_add)   
     else:
         most_common1 = []
             
@@ -500,65 +538,14 @@ def create_additional_data(path_, write_to_console=None, material=None, material
     """array_generator_verify(self.save_directory+"//training_data", batch_size, 
           len(self.classhkl), self.loc_new, self.write_to_console)
             if generate_additional_data==True"""
-    array_pairs = get_path(path_, ver=1)
-    
-    for ijk in array_pairs:
-        
-        if ijk.split("\\")[-1].startswith(material+"_grain_"):
-            obj = np.load(ijk)
-            
-            loc1 = obj["arr_1"]
-            for kji in array_pairs:
-                
-                pass#TODO
+    # array_pairs = get_path(path_, ver=1)
+    # for ijk in array_pairs:
+    #     if ijk.split("\\")[-1].startswith(material+"_grain_"):
+    #         obj = np.load(ijk)
+    #         loc1 = obj["arr_1"]
+    #         for kji in array_pairs:
+    pass #TODO
 
-    # random.shuffle(array_pairs)
-    # zipped = itertools.cycle(array_pairs)
-    # while True:
-    #     temp_var = False
-    #     for bs in range(batch_size):
-    #         array_path = next(zipped)
-    #         obj = np.load(array_path)
-    #         loc1 = obj["arr_1"]            
-    #         if len(loc1) == 0:
-    #             if write_to_console !=None:
-    #                 write_to_console("Skipping File: "+ array_path+"; No data is found")
-    #             if bs == 0:
-    #                 temp_var = True
-    #             continue             
-    #         ## remove the non frequent class and rearrange the data
-    #         loc1_new = []
-    #         for k, i in enumerate(loc1):
-    #             temp_loc = np.where(loc_new==i)[0]
-    #             if len(temp_loc) == 1:
-    #                 loc1_new.append(temp_loc)     
-    #         loc1_new = np.array(loc1_new).ravel()
-    #         if bs == 0 or temp_var:
-    #             trainY1 = np.copy(loc1_new)
-    #         else:
-    #             trainY1 = np.hstack((trainY1, loc1_new)) 
-    #     return trainY1
-    # open each npz file and combine two grains to form another Laue pattern
-    ##save all data then open them and combine into one laue pattern --> better for two phase material
-    # s_tth, s_chi, s_miller_ind, _, _, _, \
-    #     ori_mat, ori_mat1
-    # s_tth = np.array([item for sublist in l_tth for item in sublist])
-    # s_chi = np.array([item for sublist in l_chi for item in sublist])
-    # s_miller_ind = np.array([item for sublist in l_miller_ind for item in sublist])
-    # s_posx = np.array([item for sublist in l_posx for item in sublist])
-    # s_posy = np.array([item for sublist in l_posy for item in sublist])
-    # s_E = np.array([item for sublist in l_E for item in sublist])
-    # s_intensity=np.array([item for sublist in l_intensity for item in sublist])
-    
-    # if sortintensity:
-    #     indsort = np.argsort(s_intensity)[::-1]
-    #     s_tth=np.take(s_tth, indsort)
-    #     s_chi=np.take(s_chi, indsort)
-    #     s_miller_ind=np.take(s_miller_ind, indsort, axis=0)
-    #     s_posx=np.take(s_posx, indsort)
-    #     s_posy=np.take(s_posy, indsort)
-    #     s_E=np.take(s_E, indsort)
-    #     s_intensity=np.take(s_intensity, indsort)
 
 def array_generatorV2(path_, ver=1, progress=None, qapp=None):
     array_pairs = get_path(path_, ver=ver)
@@ -591,124 +578,68 @@ def mse_images(pathA, pathB, ix, iy, ccd_label, progressbar=False, iteration=Non
    	# the 'Mean Squared Error' between the two images is the
    	# sum of the squared difference between the two images;
    	# NOTE: the two images must have the same dimension
-    imageA, _, _ = IOimage.readCCDimage(pathA, stackimageindex=-1,
-                                      CCDLabel=ccd_label,
-                                      dirname=None, verbose=0)
-    imageB, _, _ = IOimage.readCCDimage(pathB, stackimageindex=-1,
-                                      CCDLabel=ccd_label,
-                                      dirname=None, verbose=0)
-    err = np.sum((imageA.astype("int") - imageB.astype("int")) ** 2)
-    err /= float(imageA.shape[0] * imageA.shape[1])
-    
     if progressbar:
         printProgressBar(iteration, total-1)
+        
+    try:
+        imageA, _, _ = IOimage.readCCDimage(pathA, stackimageindex=-1,
+                                          CCDLabel=ccd_label,
+                                          dirname=None, verbose=0)
+        backgroundimage_imageA = ImProc.compute_autobackground_image(imageA, boxsizefilter=10)
+        # basic substraction
+        data_imageA = ImProc.computefilteredimage(imageA, backgroundimage_imageA, 
+                                                    ccd_label, usemask=True, formulaexpression="A-B")
+        
+        imageB, _, _ = IOimage.readCCDimage(pathB, stackimageindex=-1,
+                                          CCDLabel=ccd_label,
+                                          dirname=None, verbose=0)
+        backgroundimage_imageB = ImProc.compute_autobackground_image(imageB, boxsizefilter=10)
+        # basic substraction
+        data_imageB = ImProc.computefilteredimage(imageB, backgroundimage_imageB, 
+                                                    ccd_label, usemask=True, formulaexpression="A-B")
+        
+        err = np.sum((data_imageA.astype("int") - data_imageB.astype("int")) ** 2)
+        
+        err /= float(data_imageA.shape[0] * data_imageA.shape[1])
+        if (ix == 0 and iy ==  3):
+            print(ix, iy, err)
+        if (ix == 0 and iy ==  4):
+            print(ix, iy, err)
+        if (ix == 0 and iy ==  2):
+            print(ix, iy, err)
+    except:
+        return -1, ix, iy
     
     return err, ix, iy
-    
-class LoggingCallback(Callback):
-    """Callback that logs message at end of epoch.
-    """
-    def __init__(self, print_fcn, progress_func, qapp, model, fn_model):
-        Callback.__init__(self)
-        self.print_fcn = print_fcn
-        self.progress_func = progress_func
-        self.batch_count = 0
-        self.qapp = qapp
-        self.model = model
-        self.model_name = fn_model
-    
-    def on_batch_end(self, batch, logs={}):
-        self.batch_count += 1
-        self.progress_func.setValue(self.batch_count)
-        self.qapp.processEvents()
-        
-    def on_epoch_end(self, epoch, logs={}):
-        msg = "{Epoch: %i} %s" % (epoch, ", ".join("%s: %f" % (k, v) for k, v in logs.items()))
-        self.print_fcn(msg)
-        model_json = self.model.to_json()
-        with open(self.model_name+".json", "w") as json_file:
-            json_file.write(model_json)            
-        # serialize weights to HDF5
-        self.model.save_weights(self.model_name+"_"+str(epoch)+".h5")
-        
-def model_arch_general(n_bins, n_outputs, kernel_coeff = 0.0005, bias_coeff = 0.0005, lr=None, verbose=1,
-                       write_to_console=None):
-    """
-    Very simple and straight forward Neural Network with few hyperparameters
-    straighforward RELU activation strategy with cross entropy to identify the HKL
-    Tried BatchNormalization --> no significant impact
-    Tried weighted approach --> not better for HCP
-    Trying Regularaization 
-    l2(0.001) means that every coefficient in the weight matrix of the layer 
-    will add 0.001 * weight_coefficient_value**2 to the total loss of the network
-    """
-    if n_outputs >= n_bins:
-        param = n_bins
-        if param*15 < (2*n_outputs): ## quick hack; make Proper implementation
-            param = (n_bins + n_outputs)//2
-    else:
-        # param = n_outputs ## More reasonable ???
-        param = n_outputs*2 ## More reasonable ???
-        # param = n_bins//2
-        
-    model = Sequential()
-    model.add(keras.Input(shape=(n_bins,)))
-    ## Hidden layer 1
-    model.add(Dense(n_bins, kernel_regularizer=l2(kernel_coeff), bias_regularizer=l2(bias_coeff)))
-    # model.add(BatchNormalization())
-    model.add(Activation('relu'))
-    model.add(Dropout(0.3)) ## Adding dropout as we introduce some uncertain data with noise
-    ## Hidden layer 2
-    model.add(Dense(((param)*15 + n_bins)//2, kernel_regularizer=l2(kernel_coeff), bias_regularizer=l2(bias_coeff)))
-    # model.add(BatchNormalization())
-    model.add(Activation('relu'))
-    model.add(Dropout(0.3))
-    ## Hidden layer 3
-    model.add(Dense((param)*15, kernel_regularizer=l2(kernel_coeff), bias_regularizer=l2(bias_coeff)))
-    # model.add(BatchNormalization())
-    model.add(Activation('relu'))
-    model.add(Dropout(0.3))
-    ## Output layer 
-    model.add(Dense(n_outputs, activation='softmax'))
-    ## Compile model
-    if lr != None:
-        otp = tf.keras.optimizers.Adam(learning_rate=lr)
-        model.compile(loss='categorical_crossentropy', optimizer=otp, metrics=[metricsNN])
-    else:
-        model.compile(loss='categorical_crossentropy', optimizer="adam", metrics=[metricsNN])
-    
-    if verbose == 1:
-        model.summary()
-        stringlist = []
-        model.summary(print_fn=lambda x: stringlist.append(x))
-        short_model_summary = "\n".join(stringlist)
-        if write_to_console!=None:
-            write_to_console(short_model_summary)
-    return model
 
 def generate_classHKL(n, rules, lattice_material, symmetry, material_, crystal=None, SG=None, general_diff_cond=False,
-         save_directory="", write_to_console=None, progress=None, qapp=None, ang_maxx = None, step = None):  
+         save_directory="", write_to_console=None, progress=None, qapp=None, ang_maxx = None, step = None, 
+         mat_listHKl=None):
+
     temp_ = GT.threeindices_up_to(int(n))
+    
+    if mat_listHKl != None:
+        mat_listHKl = np.array(mat_listHKl)
+        temp_ = np.vstack((temp_, mat_listHKl))
+        
     classhkl_ = temp_
     
+    
+    if general_diff_cond:
+        classhkl_ = crystal.hkl_allowed_array(classhkl_)
+        
     if write_to_console !=None:
         write_to_console("Generating HKL objects")
+        
     # generate HKL object
     if progress !=None:
         progress.setMaximum(len(classhkl_))
+        
     hkl_all = {}
     # another_method = False
     for i in range(len(classhkl_)):
         new_hkl = classhkl_[i,:]
-        
-        if general_diff_cond:
-            cond_proceed = crystal.hkl_allowed(new_hkl, returnequivalents=False)
-        else:
-            cond_proceed = True
-        
-        if not cond_proceed:
-            continue
-        
+
         new_rounded_hkl = _round_indices(new_hkl)
         mul_family = crystal.equivalent_hkls(new_rounded_hkl)
         
@@ -768,35 +699,38 @@ def generate_classHKL(n, rules, lattice_material, symmetry, material_, crystal=N
         ang_maxx= 90
     if step == None:
         step=0.1
-        
-    codebars, angbins = get_material_data(material_ = material_, ang_maxx = ang_maxx, step = step,
-                                               hkl_ref=n, classhkl=classhkl)
+    
+    # =============================================================================
+    #     #Verify if two hkl normal are same
+    # =============================================================================
+    # codebars, angbins = get_material_data(material_ = material_, ang_maxx = ang_maxx, step = step,
+    #                                            hkl_ref=n, classhkl=classhkl)
     # if write_to_console !=None:
     #     write_to_console("Verifying if two different HKL class have same angular distribution (can be very time consuming depending on the symmetry)")
-    list_appended = []
-    list_remove = []
-    for i, j in enumerate(codebars):
-        for k, l in enumerate(codebars):
-            # if i in list_appended and k in list_appended:
-            #     continue
-            if i != k and np.all(j == l):
-                # string0 = "HKL's "+ str(classhkl[i])+" and "+str(classhkl[k])+" have exactly the same angular distribution."
-                # if write_to_console !=None:
-                #     write_to_console(string0)
-                if keys_rmv[i] in list_remove or keys_rmv[k] in list_remove:
-                    if write_to_console !=None:
-                        continue
-                        # write_to_console("list already added")                        
-                else:
-                    list_remove.append(keys_rmv[i])
-                    ind_rmv.append(keys_rmv[i])
-                    for ijk in hkl_all[keys_rmv[i]]['family']:
-                        hkl_all[keys_rmv[k]]['family'].append(ijk)
-            list_appended.append(i)
-            list_appended.append(k)
-    if len(list_remove) != 0:
-        for inrmv in list_remove:
-            _ = hkl_all.pop(inrmv, None)
+    # list_appended = []
+    # list_remove = []
+    # for i, j in enumerate(codebars):
+    #     for k, l in enumerate(codebars):
+    #         # if i in list_appended and k in list_appended:
+    #         #     continue
+    #         if i != k and np.all(j == l):
+    #             # string0 = "HKL's "+ str(classhkl[i])+" and "+str(classhkl[k])+" have exactly the same angular distribution."
+    #             # if write_to_console !=None:
+    #             #     write_to_console(string0)
+    #             if keys_rmv[i] in list_remove or keys_rmv[k] in list_remove:
+    #                 if write_to_console !=None:
+    #                     continue
+    #                     # write_to_console("list already added")                        
+    #             else:
+    #                 list_remove.append(keys_rmv[i])
+    #                 ind_rmv.append(keys_rmv[i])
+    #                 for ijk in hkl_all[keys_rmv[i]]['family']:
+    #                     hkl_all[keys_rmv[k]]['family'].append(ijk)
+    #         list_appended.append(i)
+    #         list_appended.append(k)
+    # if len(list_remove) != 0:
+    #     for inrmv in list_remove:
+    #         _ = hkl_all.pop(inrmv, None)
             
     if write_to_console !=None:
         write_to_console("Finalizing the HKL objects")
@@ -1051,8 +985,7 @@ def getpatterns_(nb, nb1, material_=None, material1_=None, emin=5, emax=23, dete
                  normal_hkl1=None, index_hkl1=None, dim1=2048, dim2=2048, removeharmonics=1, flag = 0,
                  img_i=None, img_j=None, save_directory_=None, odf_data=None, odf_data1=None, modelp=None,
                  misorientation_angle=None, max_millerindex=0, max_millerindex1=0, general_diff_cond=False, crystal=None, crystal1=None,
-                 phase_always_present=None):
-    
+                 phase_always_present=None, mat0_listHKl=None, mat1_listHKl=None):    
     s_tth, s_chi, s_miller_ind, _, _, _, \
         ori_mat, ori_mat1 = simulatemultiplepatterns(nb, nb1, seed=seed, key_material=material_, 
                                                                         key_material1=material1_,
@@ -1092,6 +1025,7 @@ def getpatterns_(nb, nb1, material_=None, material1_=None, emin=5, emax=23, dete
             s_chi = np.delete(s_chi, indices_remove)
             s_miller_ind = np.delete(s_miller_ind, indices_remove, axis=0)
         else:
+            print("No peaks can be removed; due to very low number of hkl spots; could be the unit cell is too tiny")
             print(nb, nb1, material_, material1_, odf_data, odf_data1)
 
     # replace all hkl class with relevant hkls
@@ -1114,10 +1048,32 @@ def getpatterns_(nb, nb1, material_=None, material1_=None, emin=5, emax=23, dete
                 delete_spots.append(j)
                 continue
             
-            if np.any(np.abs(new_hkl)>max_millerindex):
-                skip_hkl.append(j)
-                continue
-            
+            if mat0_listHKl == None:
+                if np.any(np.abs(new_hkl)>max_millerindex):
+                    skip_hkl.append(j)
+                    continue
+            else:
+                print("Not implemented part of function accessed; line 1058 in utils_lauenn.py")
+                #TODO rubbish, have to fix in a better way
+                # for ih, ik, il in mat0_listHKl:
+                #     new_hkl1 = _round_indices(i[:3])
+                #     conda= new_hkl[0]==ih
+                #     condb= new_hkl[1]==ik
+                #     condc= new_hkl[2]==il
+                #     indd123 = np.where(conda*condb*condc == True)[0]
+                #     if len(indd123) == 0:
+                #         print("Demanded HKL not found;",ih,ik,il)
+                #         continue
+                #     for ihkl in indd123:
+                #         if ihkl in all_common[:,0]:
+                #             inind = np.where(all_common[:,0]==ihkl)[0]
+                #             print("Demanded hkl",ih,ik,il," has the following occurance",all_common[inind,1])
+                #             to_add = (all_common[inind,0][0], all_common[inind,1][0])
+                #             if to_add not in most_common0:
+                #                 most_common0.append(to_add)    
+                
+                
+                
             temp_ = np.all(new_hkl == normal_hkl, axis=1)
             if len(np.where(temp_)[0]) == 1:
                 ind_ = np.where(temp_)[0][0]
@@ -1153,10 +1109,30 @@ def getpatterns_(nb, nb1, material_=None, material1_=None, emin=5, emax=23, dete
                 delete_spots.append(j)
                 continue
             
-            if np.any(np.abs(new_hkl)>max_millerindex1):
-                skip_hkl.append(j)
-                continue
-            
+            if mat1_listHKl == None:
+                if np.any(np.abs(new_hkl)>max_millerindex1):
+                    skip_hkl.append(j)
+                    continue
+            else:
+                print("Not implemented part of function accessed; line 1119 in utils_lauenn.py")
+                #TODO rubbish, have to fix in a better way
+                # for ih, ik, il in mat1_listHKl:
+                #     new_hkl1 = _round_indices(i[:3])
+                #     conda= new_hkl[0]==ih
+                #     condb= new_hkl[1]==ik
+                #     condc= new_hkl[2]==il
+                #     indd123 = np.where(conda*condb*condc == True)[0]
+                #     if len(indd123) == 0:
+                #         print("Demanded HKL not found;",ih,ik,il)
+                #         continue
+                #     for ihkl in indd123:
+                #         if ihkl in all_common[:,0]:
+                #             inind = np.where(all_common[:,0]==ihkl)[0]
+                #             print("Demanded hkl",ih,ik,il," has the following occurance",all_common[inind,1])
+                #             to_add = (all_common[inind,0][0], all_common[inind,1][0])
+                #             if to_add not in most_common0:
+                #                 most_common0.append(to_add)    
+                                
             temp_ = np.all(new_hkl == normal_hkl1, axis=1)
             if len(np.where(temp_)[0]) == 1:
                 ind_ = np.where(temp_)[0][0]
@@ -1217,12 +1193,14 @@ def getpatterns_(nb, nb1, material_=None, material1_=None, emin=5, emax=23, dete
         for i, txt_hkl in enumerate(s_miller_ind):
             txt = _round_indices(txt_hkl[:3])
             # print("Actual hkl: "+str(txt_hkl[:3])+" ;  Rounded hkl: "+str(txt[:3]))
-            if txt_hkl[3] == 0:
-                if np.any(np.abs(txt) > max_millerindex):
-                    continue
-            elif txt_hkl[3] == 1:
-                if np.any(np.abs(txt) > max_millerindex1):
-                    continue
+            if np.any(np.abs(txt) > max_millerindex):
+                continue
+            # if txt_hkl[3] == 0:
+            #     if np.any(np.abs(txt) > max_millerindex):
+            #         continue
+            # elif txt_hkl[3] == 1:
+            #     if np.any(np.abs(txt) > max_millerindex1):
+            #         continue
             txt = txt_hkl 
             texts1.append(plt.text(s_tth[i], s_chi[i], str(int(txt[0]))+" "+str(int(txt[1]))+" "+str(int(txt[2])), size=8))
         adjust_text(texts1, only_move={'points':'y', 'text':'y'})
@@ -1235,15 +1213,15 @@ def getpatterns_(nb, nb1, material_=None, material1_=None, emin=5, emax=23, dete
         if len(codebars) != 0:
             if nb == 0:
                 np.savez_compressed(save_directory_+'//'+material1_+'_grain_'+str(img_i)+"_"+\
-                                    str(img_j)+suffix_+'.npz', codebars, location, ori_mat, ori_mat1, flag,\
+                                    str(img_j)+suffix_+"_nb"+str(nb)+str(nb1)+'.npz', codebars, location, ori_mat, ori_mat1, flag,\
                                     s_tth, s_chi, s_miller_ind)
             elif nb1 == 0:
                 np.savez_compressed(save_directory_+'//'+material_+'_grain_'+str(img_i)+"_"+\
-                                    str(img_j)+suffix_+'.npz', codebars, location, ori_mat, ori_mat1, flag,\
+                                    str(img_j)+suffix_+"_nb"+str(nb)+str(nb1)+'.npz', codebars, location, ori_mat, ori_mat1, flag,\
                                     s_tth, s_chi, s_miller_ind)
             else:
                 np.savez_compressed(save_directory_+'//'+material_+"_"+material1_+'_grain_'+str(img_i)+"_"+\
-                                    str(img_j)+suffix_+'.npz', codebars, location, ori_mat, ori_mat1, flag,\
+                                    str(img_j)+suffix_+"_nb"+str(nb)+str(nb1)+'.npz', codebars, location, ori_mat, ori_mat1, flag,\
                                     s_tth, s_chi, s_miller_ind)
         else:
             print("Skipping a simulation file: "+save_directory_+'//grain_'+\
@@ -1517,7 +1495,8 @@ def worker_generation(inputs_queue, outputs_queue, proc_id):
                  normal_hkl1, index_hkl1, dim1, dim2, removeharmonics, flag,\
                  img_i, img_j, save_directory_, odf_data, odf_data1, modelp,\
                      misorientation_angle, max_millerindex, max_millerindex1,\
-                         general_diff_cond, crystal, crystal1, phase_always_present = num1[ijk]
+                         general_diff_cond, crystal, crystal1, phase_always_present,\
+                          mat0_listHKl, mat1_listHKl= num1[ijk]
 
 
                 getpatterns_(nb, nb1, material_, material1_, emin, emax, detectorparameters, pixelsize, \
@@ -1527,7 +1506,7 @@ def worker_generation(inputs_queue, outputs_queue, proc_id):
                                          normal_hkl1, index_hkl1, dim1, dim2, removeharmonics, flag,\
                                          img_i, img_j, save_directory_, odf_data, odf_data1, modelp, \
                                          misorientation_angle, max_millerindex, max_millerindex1, general_diff_cond, crystal, \
-                                             crystal1, phase_always_present)
+                                             crystal1, phase_always_present, mat0_listHKl, mat1_listHKl)
                     
                 if ijk%10 == 0 and ijk!=0:
                     outputs_queue.put(11)
@@ -1593,34 +1572,6 @@ def computeGnomonicImage(TwiceTheta,Chi):
     imageGNO[XGNO,YGNO]=100
     return imageGNO, nbpeaks, halfdiagonal
 
-def read_hdf5(path):
-    weights = {}
-    keys = []
-    with h5py.File(path, 'r') as f: # open file
-        f.visit(keys.append) # append all keys to list
-        for key in keys:
-            if ':' in key: # contains data if ':' in key
-                weights[f[key].name] = f[key][:]
-    return weights
-
-def softmax(x):
-    return (np.exp(x).T / np.sum(np.exp(x).T, axis=0)).T
-
-def predict(x, wb, temp_key):
-    # first layer
-    layer0 = np.dot(x, wb[temp_key[1]]) + wb[temp_key[0]] 
-    layer0 = np.maximum(0, layer0) ## ReLU activation
-    # Second layer
-    layer1 = np.dot(layer0, wb[temp_key[3]]) + wb[temp_key[2]] 
-    layer1 = np.maximum(0, layer1)
-    # Third layer
-    layer2 = np.dot(layer1, wb[temp_key[5]]) + wb[temp_key[4]]
-    layer2 = np.maximum(0, layer2)
-    # Output layer
-    layer3 = np.dot(layer2, wb[temp_key[7]]) + wb[temp_key[6]]
-    layer3 = softmax(layer3) ## output softmax activation
-    return layer3
-
 def worker(inputs_queue, outputs_queue, proc_id, run_flag):#, mp_rotation_matrix):
     print(f'Initializing worker {proc_id}')
     while True:
@@ -1668,7 +1619,7 @@ def worker(inputs_queue, outputs_queue, proc_id, run_flag):#, mp_rotation_matrix
                     material0_limit, material1_limit, use_previous_UBmatrix_name1,\
                         material_phase_always_present1, crystal, crystal1, strain_free_parameters = num1[ijk]
                     
-                    if np.all(check[cnt,:]) == 1: #TODO
+                    if np.all(check[cnt,:]) == 1:
                         continue
                     
                     if os.path.isfile(files):
@@ -1783,7 +1734,6 @@ def predict_preprocessMP_vsingle(files, cnt,
 
     spots_in_center = np.arange(0,len(data_theta))
     spots_in_center = spots_in_center[:nb_spots_consider]
-    
     for i in spots_in_center:
         spotangles = tabledistancerandom[i]
         spotangles = np.delete(spotangles, i)# removing the self distance
@@ -1795,13 +1745,20 @@ def predict_preprocessMP_vsingle(files, cnt,
         codebars_all.append(codebars)
     ## reshape for the model to predict all spots at once
     codebars = np.array(codebars_all)
+    
+    # ## dump intermediate results to debug
+    # print(os.getcwd())
+    # with open("temp_dump.pickle", "wb") as output_file:
+    #     cPickle.dump([codebars, wb, temp_key], output_file)
+    
     ## Do prediction of all spots at once
-    prediction = predict(codebars, wb, temp_key)
+    prediction = predict_DNN(codebars, wb, temp_key)
+
     max_pred = np.max(prediction, axis = 1)
     class_predicted = np.argmax(prediction, axis = 1)
     predicted_hkl123 = classhkl[class_predicted]
     predicted_hkl123 = predicted_hkl123.astype(int)
-
+        
     s_tth = data_theta * 2.
     s_chi = data_chi
 
@@ -1850,8 +1807,7 @@ def predict_preprocessMP_vsingle(files, cnt,
                                                   crystal=crystal,
                                                   crystal1=crystal1, angbins=angbins,
                                                   wb=wb, temp_key=temp_key,
-                                                  strain_free_parameters=strain_free_parameters)
-    
+                                                  strain_free_parameters=strain_free_parameters)    
     for intmat in range(matricies):
         if len(rotation_matrix1[intmat]) == 0:
             col[intmat][0][cnt,:] = 0,0,0
@@ -1884,7 +1840,7 @@ def predict_preprocessMP_vsingle(files, cnt,
             fR_pix[intmat][0][cnt] = fR_pix1[intmat][0]
             best_match[intmat][0][cnt] = best_match1[intmat][0]
             check[cnt,intmat] = check12[intmat]
-
+        
     files_treated.append(files)
     return strain_matrix, strain_matrixs, rotation_matrix, col, colx, coly, match_rate, \
             mat_global, cnt, files_treated, spots_len, iR_pix, fR_pix, check, best_match, predicted_hkl123
@@ -2093,7 +2049,7 @@ def predict_preprocessMP(files, cnt,
         ## reshape for the model to predict all spots at once
         codebars = np.array(codebars_all)
         ## Do prediction of all spots at once
-        prediction = predict(codebars, wb, temp_key)
+        prediction = predict_DNN(codebars, wb, temp_key)
         max_pred = np.max(prediction, axis = 1)
         class_predicted = np.argmax(prediction, axis = 1)
         predicted_hkl123 = classhkl[class_predicted]
@@ -3234,7 +3190,7 @@ def get_orient_mat_repredict(s_tth, s_chi, material0_, material1_, classhkl, cla
         ## reshape for the model to predict all spots at once
         codebars = np.array(codebars_all)
         ## Do prediction of all spots at once
-        prediction = predict(codebars, wb, temp_key)
+        prediction = predict_DNN(codebars, wb, temp_key)
         max_pred = np.max(prediction, axis = 1)
         class_predicted = np.argmax(prediction, axis = 1)
         predicted_hkl123 = classhkl[class_predicted]
@@ -4364,7 +4320,6 @@ def propose_UB_matrix(hkl1_list, hkl2_list, Gstar_metric, input_params, dist123,
             spot1_hkl.append(hkls[ii][0])
             spot2_hkl.append(hkls[ii][1])
     
-    #TODO
     ## just fixing a* to x seems ok; if not think of aligning b* to xy plane
     sum_sign = []
     for nkl in range(len(actual_mat)):
@@ -4406,6 +4361,14 @@ def find_uniq_u(u, syms):
     return np.array(uniq)
 
 def remove_spots(s_tth, s_chi, first_match123, material_, input_params, detectorparameters, dict_dp):
+    ## get proximity for exp and theo spots
+    if input_params["mat"] == 1:
+        angtol = input_params["tolerance"]
+    elif input_params["mat"] == 2:
+        angtol = input_params["tolerance1"]
+    else:
+        return [], 100
+    
     try:
         grain = CP.Prepare_Grain(material_, first_match123, dictmaterials=dictLT.dict_Materials)
         ### initialize global variables to be used later
@@ -4436,14 +4399,7 @@ def remove_spots(s_tth, s_chi, first_match123, material_, input_params, detector
                                                     detectordiameter=detectordiameter,
                                                     pixelsize=pixelsize,
                                                     dim=dim)
-    ## get proximity for exp and theo spots
-    if input_params["mat"] == 1:
-        angtol = input_params["tolerance"]
-    elif input_params["mat"] == 2:
-        angtol = input_params["tolerance1"]
-    else:
-        return [], 100
-    
+
     if option_global =="v1":
         # print("entering v1")
         List_Exp_spot_close, residues_link, _ = getProximityv1(np.array([TwicethetaChi[0], TwicethetaChi[1]]),  # warning array(2theta, chi)
@@ -4697,7 +4653,6 @@ def refineonce_fromUB(s_tth, s_chi, UBmat, grain, input_params,
 def calculate_strains_fromUB(s_tth, s_chi, UBmat, material_, input_params, 
                              detectorparameters, dict_dp, spots, B_matrix, strain_free_parameters):
     ## for the moment strain_free_parameters is a trial implementation 
-    #TODO to be verified    
     if ("a" not in strain_free_parameters) and len(strain_free_parameters)>=5:
         if additional_expression[0] != "none":
             print("Note: additional_expression is not applied for the current set of strain free parameters")
@@ -8513,7 +8468,7 @@ def save_sst(lim_x, lim_y, strain_matrix, strain_matrixs, col, colx, coly,
                             symms=symms)
 
 
-texttstr = "\n\
+texttstr1 = "\n\
 ### config file for LaueNeuralNetwork \n\
 [CPU]\n\
 n_cpu = 8\n\
@@ -8628,7 +8583,6 @@ hkls_subsets = [1,1,0],[1,0,0],[1,1,1]\n\
 residues_threshold=0.15\n\
 nb_spots_global_threshold=10\n\
 option_global = v1\n\
-use_om_user = true\n\
 nb_spots_consider = 100\n\
 # User defined orientation matrix supplied in a file\n\
 use_om_user = false\n\
@@ -8809,6 +8763,7 @@ class SGLattice(object):
             monoclinic : a, b, c, beta (in degree).
             triclinic : a, b, c, alpha, beta, gamma (in degree).
         """
+        self.space_groupstr = str(sgrp)
         self.space_group = str(sgrp)
         self.space_group_nr = int(self.space_group.split(':')[0])
         try:
@@ -9079,7 +9034,11 @@ class SGLattice(object):
 
         ret = testhklcond(hkls, self._hklcond)
         return build_return(ret)
-
+    
+    def hkl_allowed_array(self, hkl):
+        rethkl = testhklcond_generalrules_array(self.space_groupstr, hkl)
+        return rethkl
+    
 def check2n(h):
     if (h % 2 == 0):
         return 1
@@ -9585,6 +9544,10 @@ def _round_indices(indices, max_index=12):
     new_indices : np.ndarray
         Integer array of rounded set of index triplet(s) or quartet(s).
     """
+    
+    if np.max(np.abs(indices)) > max_index:
+        max_index = int(np.max(np.abs(indices)))
+    
     # Allow list and tuple input (and don't overwrite `indices`)
     idx = np.asarray(indices)
 
@@ -9604,17 +9567,11 @@ def _round_indices(indices, max_index=12):
     # and multiply with all multipliers
     idx_scaled = (
         np.broadcast_to(idx_flat / max_per_set[..., np.newaxis], (max_index, n_sets, 3))
-        * multipliers[..., np.newaxis, np.newaxis]
-    )
+        * multipliers[..., np.newaxis, np.newaxis])
 
     # Find the most suitable multiplier per set, which gives the
-    # smallest error between the initial set and the scaled and rounded
-    # set
-    error = 1e-7 * np.round(
-        1e7
-        * np.sum((idx_scaled - np.round(idx_scaled)) ** 2, axis=-1)
-        / np.sum(idx_scaled ** 2, axis=-1)
-    )
+    # smallest error between the initial set and the scaled and rounded set
+    error = 1e-7*np.round(1e7*np.sum((idx_scaled-np.round(idx_scaled))**2,axis=-1)/np.sum(idx_scaled**2,axis=-1))
     idx_min_error = np.argmin(error, axis=0)
     multiplier = (idx_min_error + 1) / max_per_set
 
@@ -10691,9 +10648,8 @@ def predict_preprocessMultiProcess(files, cnt,
         ## reshape for the model to predict all spots at once
         codebars = np.array(codebars_all)
         ## Do prediction of all spots at once
-        prediction = predict(codebars, wb, temp_key)
+        prediction = predict_DNN(codebars, wb, temp_key)
         
-        # prediction = model.predict(codebars)
         max_pred = np.max(prediction, axis = 1)
         class_predicted = np.argmax(prediction, axis = 1)
         
@@ -10912,7 +10868,7 @@ def prepare_LP_NB(nbgrains, nbgrains1, material_, verbose, material1_=None, seed
 def simulatemultiplepatterns_NB(nbUBs, nbUBs1, seed=123, key_material=None, key_material1=None, emin=5, emax=23,
                              detectorparameters=None, pixelsize=None,
                              sortintensity = False, dim1=2048, dim2=2048, flag=0):
-    detectordiameter = pixelsize * dim1 #TODO
+    detectordiameter = pixelsize * dim1
     g = np.zeros((nbUBs, 3, 3))
     g1 = np.zeros((nbUBs1, 3, 3))
     for igr in range(nbUBs):
@@ -11014,9 +10970,7 @@ def generate_multimat_dataset(  material_=["Cu"],
     """
     works for n phases now.
     """
-    from multiprocessing import Process, Queue, cpu_count
     ncpu = cpu_count()
-    
     ## make sure directory exists
     save_directory_ = save_directory+"//"+type_
     if not os.path.exists(save_directory_):
@@ -11147,8 +11101,17 @@ def generate_multimat_dataset(  material_=["Cu"],
     for ijk in range(int(ncpu)):
         _inputs_queue.put((chunks_mp[ijk], ncpu, meta))
 
-    max_progress = max_progress
+    max_progress = len(values)
+    update_progress = 0
+    pbar = tqdm(total=max_progress)
     while True:
+        time.sleep(2)
+        if not _outputs_queue.empty():
+            r_message = _outputs_queue.get()
+            print(r_message)
+            update_progress = update_progress + r_message
+            pbar.update(update_progress)
+            
         count = 0
         for i in range(ncpu):
             if not _worker_process[i].is_alive():
@@ -11157,8 +11120,9 @@ def generate_multimat_dataset(  material_=["Cu"],
             else:
                 time.sleep(0.1)
         if count == ncpu:
+            pbar.close()
             return
-
+        
 def getMMpatterns_(nb, material_=None, emin=5, emax=23, detectorparameters=None, pixelsize=None, 
                  sortintensity = False, ang_maxx = 45, step = 0.5, classhkl = None, noisy_data=False, 
                  remove_peaks=False, seed = None,hkl_all=None, lattice_material=None, family_hkl=None,
@@ -11168,20 +11132,20 @@ def getMMpatterns_(nb, material_=None, emin=5, emax=23, detectorparameters=None,
                  ):
     if np.all(np.array(nb)==0):
         print("Skipping a simulation file: "+save_directory_+'//grain_'+\
-                            str(img_i)+"_"+str(img_j)+'.npz'+"; Due to zero UBmatrix")
+                            str(img_i)+"_"+str(img_j)+'.npz'+"; Due to zero grains")
         return
 
-    
     ori_mat, ori_mat1 = [], []
-    s_tth, s_chi, s_miller_ind, _, _, _ = simulatemultimatpatterns(nb, seed=seed, key_material=material_, 
-                                                                        emin=emin, emax=emax,
-                                                                         detectorparameters=detectorparameters,
-                                                                         pixelsize=pixelsize,
-                                                                         sortintensity = sortintensity, 
-                                                                         dim1=dim1, dim2=dim2, 
-                                                                         removeharmonics=removeharmonics,
-                                                                         flag=flag, mode=modelp,
-                                                                         )
+    s_tth, s_chi, s_miller_ind, _, _, _ = simulatemultimatpatterns(nb, seed=seed, 
+                                                                   key_material=material_, 
+                                                                emin=emin, emax=emax,
+                                                                 detectorparameters=detectorparameters,
+                                                                 pixelsize=pixelsize,
+                                                                 sortintensity = sortintensity, 
+                                                                 dim1=dim1, dim2=dim2, 
+                                                                 removeharmonics=removeharmonics,
+                                                                 flag=flag, mode=modelp,
+                                                                 )
     if noisy_data:
         ## apply random gaussian type noise to the data (tth and chi)
         ## So adding noise to the angular distances
@@ -11207,14 +11171,31 @@ def getMMpatterns_(nb, material_=None, emin=5, emax=23, detectorparameters=None,
             s_tth = np.delete(s_tth, indices_remove)
             s_chi = np.delete(s_chi, indices_remove)
             s_miller_ind = np.delete(s_miller_ind, indices_remove, axis=0)
-
+    
+    add_random_noise = False
+    if add_random_noise:
+        # TODO
+        # nb_random_spots = 500
+        ## add random two theta and chi spots to the dataset
+        # to simulate noise in the patterns (in reality these 
+        # are additional peaks from partial Laue patterns).
+        
+        # we can do 2D sampling of 2theta and chi from one Cor file;
+        # but apparantly the chi is uniform from (-40 to +40)
+        # while 2theta has a distribution
+        pass
+        
+        
     # replace all hkl class with relevant hkls
     ## skip HKLS that dont follow the general diffraction rules
     location = []
     skip_hkl = []
     delete_spots = []
     for j, i in enumerate(s_miller_ind):
-
+        if np.all(i[:3] == 0):
+            skip_hkl.append(j)
+            continue
+        
         new_hkl = _round_indices(i[:3])
         
         mat_index = int(i[3])
@@ -11269,7 +11250,6 @@ def getMMpatterns_(nb, material_=None, emin=5, emax=23, detectorparameters=None,
         for del_spts in delete_spots:
             spots_delete.append(del_spts)
         angles = np.delete(angles, spots_delete)
-        # angles = np.delete(angles, i)# removing the self distance
         fingerprint = np.histogram(angles, bins=angbins)[0]
         # fingerprint = histogram1d(angles, range=[min(angbins),max(angbins)], bins=len(angbins)-1)
         ## same normalization as before
@@ -11298,34 +11278,37 @@ def simulatemultimatpatterns(nbUBs, seed=123, key_material=None,
                              sortintensity = False, dim1=2048, dim2=2048, removeharmonics=1, flag = 0,
                              mode="random"):
     l_tth, l_chi, l_miller_ind, l_posx, l_posy, l_E, l_intensity = [],[],[],[],[],[],[]
-    detectordiameter = pixelsize * dim1 #TODO * 2.0
+    detectordiameter = pixelsize * dim1
     if flag == 0:
         if mode == "random":
             for no, i in enumerate(nbUBs):
-                if i != 0:                    
-                    for igr in range(i):
-                        phi1 = rand1() * 360.
-                        phi = 180. * acos(2 * rand1() - 1) / np.pi
-                        phi2 = rand1() * 360.
-                        UBmatrix = Euler2OrientationMatrix((phi1, phi, phi2))
-                        
-                        grain = CP.Prepare_Grain(key_material[no], UBmatrix)
-                        s_tth, s_chi, s_miller_ind, \
-                            s_posx, s_posy, s_E= LT.SimulateLaue_full_np(grain, emin, emax,
-                                                                        detectorparameters,
-                                                                        pixelsize=pixelsize,
-                                                                        dim=(dim1, dim2),
-                                                                        detectordiameter=detectordiameter,
-                                                                        removeharmonics=removeharmonics)
-                        s_miller_ind = np.c_[s_miller_ind, np.ones(len(s_miller_ind))*no]
-                        s_intensity = 1./s_E
-                        l_tth.append(s_tth)
-                        l_chi.append(s_chi)
-                        l_miller_ind.append(s_miller_ind)
-                        l_posx.append(s_posx)
-                        l_posy.append(s_posy)
-                        l_E.append(s_E)
-                        l_intensity.append(s_intensity)
+                if i == 0:
+                    continue
+                
+                for igr in range(i):
+                    phi1 = rand1() * 360.
+                    phi = 180. * acos(2 * rand1() - 1) / np.pi
+                    phi2 = rand1() * 360.
+                    UBmatrix = Euler2OrientationMatrix((phi1, phi, phi2))
+                    
+                    grain = CP.Prepare_Grain(key_material[no], UBmatrix)
+                    s_tth, s_chi, s_miller_ind, \
+                        s_posx, s_posy, s_E= LT.SimulateLaue_full_np(grain, emin, emax,
+                                                                    detectorparameters,
+                                                                    pixelsize=pixelsize,
+                                                                    dim=(dim1, dim2),
+                                                                    detectordiameter=detectordiameter,
+                                                                    removeharmonics=removeharmonics)
+                    s_miller_ind = np.c_[s_miller_ind, np.ones(len(s_miller_ind))*no]
+                    s_intensity = 1./s_E
+                    l_tth.append(s_tth)
+                    l_chi.append(s_chi)
+                    l_miller_ind.append(s_miller_ind)
+                    l_posx.append(s_posx)
+                    l_posy.append(s_posy)
+                    l_E.append(s_E)
+                    l_intensity.append(s_intensity)
+    
     #flat_list = [item for sublist in l for item in sublist]
     s_tth = np.array([item for sublist in l_tth for item in sublist])
     s_chi = np.array([item for sublist in l_chi for item in sublist])
@@ -11370,10 +11353,31 @@ def worker_generation_multimat(inputs_queue, outputs_queue, proc_id):
                                          img_i, img_j, save_directory_, modelp, \
                                          max_millerindex, general_diff_cond, crystal)
                     
-                # if ijk%10 == 0 and ijk!=0:
-                #     outputs_queue.put(11)
+                if ijk%10 == 0 and ijk!=0:
+                    outputs_queue.put(11)
             if flag1 == 1:
                 break
+
+def get_crystal(SG_mat=None, symm_=None, lattice_params=None):
+    """
+        Returns material details
+    """
+    a, b, c, alpha, beta, gamma = lattice_params
+    if symm_ =="cubic":
+        crystal = SGLattice(int(SG_mat), a)
+    elif symm_ =="monoclinic":
+        crystal = SGLattice(int(SG_mat),a, b, c, beta)
+    elif symm_ == "hexagonal":
+        crystal = SGLattice(int(SG_mat),a, c)
+    elif symm_ == "orthorhombic":
+        crystal = SGLattice(int(SG_mat),a, b, c)
+    elif symm_ == "tetragonal":
+        crystal = SGLattice(int(SG_mat),a, c)
+    elif symm_ == "trigonal":
+        crystal = SGLattice(int(SG_mat),a, alpha)
+    elif symm_ == "triclinic":
+        crystal = SGLattice(int(SG_mat),a, b, c, alpha, beta, gamma)
+    return crystal
 
 def get_multimaterial_detail(material_=None, SG_mat=None, symm_mat=None):
     """
@@ -11455,27 +11459,26 @@ def get_multimaterial_detail(material_=None, SG_mat=None, symm_mat=None):
 def rmv_freq_class_MM(freq_rmv = [0], elements=["all"],
                        save_directory="", material_=None, 
                        write_to_console=None,
-                       progress=None, qapp=None):
+                       progress=None, qapp=None, list_hkl_keep=None,
+                       small_to_largeHKL=0):
     
     classhkl_mm = []
     ind_mat_mm = []
     for ino, imat in enumerate(material_):
+        classhkl0 = np.load(save_directory+"//grain_classhkl_angbin_"+imat+".npz")["arr_0"]
+        classhkl0 = classhkl0[np.argsort(classhkl0.sum(axis=1))]
+        
+        angbins = np.load(save_directory+"//grain_classhkl_angbin_"+imat+".npz")["arr_1"]
+        if write_to_console != None:
+            write_to_console(imat +" material index length: " + str(len(classhkl0)))
+            
         if ino == 0:
-            classhkl0 = np.load(save_directory+"//grain_classhkl_angbin_"+imat+".npz")["arr_0"]
-            angbins = np.load(save_directory+"//grain_classhkl_angbin_"+imat+".npz")["arr_1"]
-            if write_to_console != None:
-                write_to_console(imat +" material index length: " + str(len(classhkl0)))
             ind_mat = np.array([ij for ij in range(len(classhkl0))])
-            classhkl_mm.append(classhkl0)
-            ind_mat_mm.append(ind_mat)
         else:
-            classhkl0 = np.load(save_directory+"//grain_classhkl_angbin_"+imat+".npz")["arr_0"]
-            if write_to_console != None:
-                write_to_console(imat +" material index length: " + str(len(classhkl0)))
             pre_ind = ind_mat_mm[ino-1][-1] + 1
             ind_mat = np.array([pre_ind+ij for ij in range(len(classhkl0))])
-            classhkl_mm.append(classhkl0)
-            ind_mat_mm.append(ind_mat)
+        classhkl_mm.append(classhkl0)
+        ind_mat_mm.append(ind_mat)
             
     for ino, classhkl0 in enumerate(classhkl_mm):
         if ino == 0:
@@ -11486,8 +11489,7 @@ def rmv_freq_class_MM(freq_rmv = [0], elements=["all"],
     loc = np.array([ij for ij in range(len(classhkl))])
     trainy_ = array_generatorV2(save_directory+"//training_data", 0, progress, qapp)
     
-    
-    ## split trainy_ for two materials index
+    ## split trainy_ for multi materials index
     trainy_mat_MM = [[] for _ in range(len(material_))]
     for ino, imat in enumerate(material_):
         for ijnode in trainy_:
@@ -11498,20 +11500,48 @@ def rmv_freq_class_MM(freq_rmv = [0], elements=["all"],
         write_to_console("Class ID and frequency; check for data imbalance and select "+\
                          "appropriate LOSS function for training the model")
     
-    ## lets extract the least common occuring classes to simplify the training dataset
-    for ino, imat in enumerate(material_):
-        if elements[ino] == "all":
-            most_common0 = collections.Counter(np.array(trainy_mat_MM[ino])).most_common()
-        else:
-            most_common0 = collections.Counter(np.array(trainy_mat_MM[ino])).most_common()[:elements[ino]]
-        print("Most common classhkl elements in "+imat+" are:")
-        print(most_common0)
-        if ino == 0:
-            most_common = most_common0
-        else:
-            most_common = most_common + most_common0
-                
-        
+    ## lets extract the least common occuring classes to simplify the training dataset  
+    if small_to_largeHKL != 0 and len(material_) <= 1:
+        most_common0 = collections.Counter(np.array(trainy_mat_MM[0])).most_common()
+        most_common = []
+        for kk in most_common0:
+            if kk[0] <= small_to_largeHKL:
+                most_common.append(kk)
+        print("Most common classhkl elements in "+material_[0]+" are:")
+        print(most_common) 
+
+    else:
+        for ino, imat in enumerate(material_):
+            if elements[ino] == "all":
+                most_common0 = collections.Counter(np.array(trainy_mat_MM[ino])).most_common()
+            else:
+                most_common0 = collections.Counter(np.array(trainy_mat_MM[ino])).most_common()[:elements[ino]]
+            print("Most common classhkl elements in "+imat+" are:")
+            print(most_common0)
+            ##N simpler approach
+            ## include hkl family search also #TODO
+            if list_hkl_keep != None:
+                all_common = np.array(collections.Counter(np.array(trainy_mat_MM[ino])).most_common())
+                list_keep = list_hkl_keep[ino]
+                for ih, ik, il in list_keep:
+                    conda= classhkl[:,0]==ih
+                    condb= classhkl[:,1]==ik
+                    condc= classhkl[:,2]==il
+                    indd123 = np.where(conda*condb*condc == True)[0]
+                    if len(indd123) == 0:
+                        print("Demanded HKL not found;",ih,ik,il)
+                        continue
+                    for ihkl in indd123:
+                        if ihkl in all_common[:,0]:
+                            inind = np.where(all_common[:,0]==ihkl)[0]
+                            print("Demanded hkl",ih,ik,il," has the following occurance",all_common[inind,1])
+                            to_add = (all_common[inind,0][0], all_common[inind,1][0])
+                            if to_add not in most_common0:
+                                most_common0.append(to_add)     
+            if ino == 0:
+                most_common = most_common0
+            else:
+                most_common = most_common + most_common0
 
     class_present = [most_common[i][0] for i in range(len(most_common))]
     rmv_indices = []
@@ -11575,9 +11605,9 @@ def rmv_freq_class_MM(freq_rmv = [0], elements=["all"],
     
     if len(rmv_indices) == len(classhkl):
         if write_to_console != None:
-            write_to_console("Error; no classes left in the classhkl array; please reduce frequency to remove some classes")
+            write_to_console("Error; no classes left in the classhkl array; please reduce frequency to Keep some classes")
         else:
-            print("Error; no classes left in the classhkl array; please reduce frequency to remove some classes")
+            print("Error; no classes left in the classhkl array; please reduce frequency to Keep some classes")
         return None
     classhkl = np.delete(classhkl, rmv_indices, axis=0)
     ## save the altered classHKL object
@@ -11610,14 +11640,17 @@ def predict_preprocessMultiMatProcess(files, cnt,
                                    NumberMaxofFits123=None,fit_peaks_gaussian_global123=None,
                                    FitPixelDev_global123=None,coeff123=None, coeff_overlap=None,
                                    material0_limit=None, use_previous_UBmatrix_name=None,
-                                   material_phase_always_present=None, crystal=None, strain_free_parameters=None):
+                                   material_phase_always_present=None, crystal=None, 
+                                   strain_free_parameters=None, model_annote="from_file", verbose=True):
     
     if files in files_treated:
         return strain_matrix, strain_matrixs, rotation_matrix, col, colx, coly, \
-            match_rate, mat_global, cnt, files_treated,spots_len,iR_pix,fR_pix, check, best_match
+            match_rate, mat_global, cnt, files_treated,spots_len,iR_pix,fR_pix, check, best_match, None
     
     call_global()
-    # print("Predicting for "+files)    
+    if verbose:
+        print("Predicting for "+files)    
+    
     if files.split(".")[-1] != "cor":
         CCDLabel=ccd_label
         seednumber = "Experimental "+CCDLabel+" file"    
@@ -11629,7 +11662,7 @@ def predict_preprocessMultiMatProcess(files, cnt,
             
         if bkg_treatment == None:
             bkg_treatment = "A-B"
-            
+
         try:
             ### Max space = space betzeen pixles
             peak_XY = RMCCD.PeakSearch(
@@ -11662,7 +11695,7 @@ def predict_preprocessMultiMatProcess(files, cnt,
                                         )
             peak_XY = peak_XY[0]#[:,:2] ##[2] Integer peak lists
         except:
-            print("Error in Peak detection for "+ files)
+            print("Error in Peak detection 1 for "+ files)
             for intmat in range(matricies):
                 rotation_matrix[intmat][0][cnt,:,:] = np.zeros((3,3))
                 strain_matrix[intmat][0][cnt,:,:] = np.zeros((3,3))
@@ -11678,13 +11711,13 @@ def predict_preprocessMultiMatProcess(files, cnt,
                 check[cnt,intmat] = 0
             # files_treated.append(files)
             return strain_matrix, strain_matrixs, rotation_matrix, col, colx, coly, \
-                match_rate, mat_global, cnt, files_treated,spots_len,iR_pix,fR_pix, check, best_match
+                match_rate, mat_global, cnt, files_treated,spots_len,iR_pix,fR_pix, check, best_match, None
         
         try:
             s_ix = np.argsort(peak_XY[:, 2])[::-1]
             peak_XY = peak_XY[s_ix]
         except:
-            print("Error in Peak detection for "+ files)
+            print("Error in Peak detection 2 for "+ files)
             for intmat in range(matricies):
                 rotation_matrix[intmat][0][cnt,:,:] = np.zeros((3,3))
                 strain_matrix[intmat][0][cnt,:,:] = np.zeros((3,3))
@@ -11700,7 +11733,7 @@ def predict_preprocessMultiMatProcess(files, cnt,
                 check[cnt,intmat] = 0
             # files_treated.append(files)
             return strain_matrix, strain_matrixs, rotation_matrix, col, colx, coly, \
-                match_rate, mat_global, cnt, files_treated,spots_len,iR_pix,fR_pix, check, best_match
+                match_rate, mat_global, cnt, files_treated,spots_len,iR_pix,fR_pix, check, best_match, None
         
         
         framedim = dictLT.dict_CCD[CCDLabel][0]
@@ -11778,7 +11811,7 @@ def predict_preprocessMultiMatProcess(files, cnt,
             fR_pix[intmat][0][cnt] = 0
             check[cnt,intmat] = 0
         return strain_matrix, strain_matrixs, rotation_matrix, col, colx, coly, \
-                match_rate, mat_global, cnt, files_treated,spots_len,iR_pix,fR_pix, check, best_match
+                match_rate, mat_global, cnt, files_treated,spots_len,iR_pix,fR_pix, check, best_match, None
     
     # print("Entering GOOD section")
     spots_in_center = np.arange(0,len(data_theta))
@@ -11796,12 +11829,47 @@ def predict_preprocessMultiMatProcess(files, cnt,
         
     codebars = np.array(codebars_all)
     ## Do prediction of all spots at once
-    prediction = predict(codebars, wb, temp_key)
-    
-    # prediction = model.predict(codebars)
+    if model_annote == "DNN":
+        prediction = predict_DNN(codebars, wb, temp_key)
+    elif model_annote == "CNN":
+        prediction = predict_CNN_DNN(codebars, wb, temp_key)
+    elif model_annote == "DNN_singlelayer":
+        prediction = predict_DNN_onelayer(codebars, wb, temp_key)
+    elif model_annote == "from_file":
+        prediction = predict_with_file(codebars, model_direc, material_)
+    # #TODO
+    # elif model_annote == "CNNandDNN":
+        
+    #     ##CNN
+    #     classhkl = np.load(r"C:\Users\purushot\Desktop\github_version_simple\lauetoolsnn\multi_mat_LaueNN\Cu_Si_CNN_DNN\MOD_grain_classhkl_angbin.npz")["arr_0"]
+    #     model_weights = read_hdf5(r"C:\Users\purushot\Desktop\github_version_simple\lauetoolsnn\multi_mat_LaueNN\Cu_Si_CNN_DNN\model_Cu_Si.h5")
+    #     model_key = list(model_weights.keys())
+    #     prediction_CNN = predict_CNN_DNN(codebars, model_weights, model_key)
+    #     max_pred = np.max(prediction_CNN, axis = 1)
+    #     class_predicted = np.argmax(prediction_CNN, axis = 1)
+    #     predicted_hkl = classhkl[class_predicted]
+    #     predicted_hkl = predicted_hkl.astype(int)
+
+    #     ##DNN
+    #     classhkl1 = np.load(r"C:\Users\purushot\Desktop\github_version_simple\lauetoolsnn\multi_mat_LaueNN\Cu_Si_DNN\MOD_grain_classhkl_angbin.npz")["arr_0"]
+    #     model_weights1 = read_hdf5(r"C:\Users\purushot\Desktop\github_version_simple\lauetoolsnn\multi_mat_LaueNN\Cu_Si_DNN\model_Cu_Si.h5")
+    #     model_key1 = list(model_weights1.keys())
+    #     prediction_DNN = predict_DNN(codebars, model_weights1, model_key1)       
+    #     # max_pred1 = np.max(prediction_DNN, axis = 1)
+    #     class_predicted1 = np.argmax(prediction_DNN, axis = 1)
+    #     predicted_hkl1= classhkl1[class_predicted1]
+    #     predicted_hkl1 = predicted_hkl1.astype(int)
+        
+    #     diff = np.sum(predicted_hkl - predicted_hkl1, axis=1)
+    #     max_pred[diff !=0] = 0
+    #     max_pred[diff ==0] = 0.99 
+    #     class_predicted = np.argmax(prediction_CNN, axis = 1)
+    #     predicted_hkl123 = classhkl[class_predicted]
+    #     predicted_hkl123 = predicted_hkl123.astype(int)
+
+    # if  model_annote != "CNNandDNN":
     max_pred = np.max(prediction, axis = 1)
     class_predicted = np.argmax(prediction, axis = 1)
-    
     predicted_hkl123 = classhkl[class_predicted]
     predicted_hkl123 = predicted_hkl123.astype(int)
         
@@ -11858,8 +11926,8 @@ def predict_preprocessMultiMatProcess(files, cnt,
         else:
             mat_global[intmat][0][cnt] = mat_highest[intmat][0]
 
-            final_symm = symmetry[mat_highest[intmat][0]-1]
-            final_crystal = crystal[mat_highest[intmat][0]-1]
+            final_symm = symmetry[int(mat_highest[intmat][0])-1]
+            final_crystal = crystal[int(mat_highest[intmat][0])-1]
 
             symm_operator = final_crystal._hklsym
             strain_matrix[intmat][0][cnt,:,:] = strain_crystal[intmat][0]
@@ -11877,10 +11945,9 @@ def predict_preprocessMultiMatProcess(files, cnt,
             fR_pix[intmat][0][cnt] = fR_pix1[intmat][0]
             best_match[intmat][0][cnt] = best_match1[intmat][0]
             check[cnt,intmat] = check12[intmat]
-
     files_treated.append(files)
     return strain_matrix, strain_matrixs, rotation_matrix, col, colx, coly, match_rate, \
-            mat_global, cnt, files_treated, spots_len, iR_pix, fR_pix, check, best_match
+            mat_global, cnt, files_treated, spots_len, iR_pix, fR_pix, check, best_match, predicted_hkl123
 
 def new_MP_multimat_function(argu):
     files, cnt, rotation_matrix, strain_matrix, strain_matrixs,\
@@ -11902,14 +11969,16 @@ def new_MP_multimat_function(argu):
             NumberMaxofFits123,fit_peaks_gaussian_global123,\
             FitPixelDev_global123,coeff123,coeff_overlap,\
             material0_limit, use_previous_UBmatrix_name1,\
-            material_phase_always_present1, crystal, strain_free_parameters = argu
+            material_phase_always_present1, crystal, \
+                strain_free_parameters, model_annote = argu
                         
     strain_matrix12, strain_matrixs12, \
         rotation_matrix12, col12, \
             colx12, coly12,\
     match_rate12, mat_global12, cnt12,\
         files_treated12, spots_len12, \
-            iR_pix12, fR_pix12, check12, best_match12 = predict_preprocessMultiMatProcess(files, cnt, 
+            iR_pix12, fR_pix12, check12,\
+                best_match12, _ = predict_preprocessMultiMatProcess(files, cnt, 
                                                rotation_matrix,strain_matrix,strain_matrixs,
                                                col,colx,coly,match_rate,spots_len,iR_pix,fR_pix,best_match,
                                                mat_global,
@@ -11933,13 +12002,189 @@ def new_MP_multimat_function(argu):
                                                material0_limit,
                                                use_previous_UBmatrix_name1,
                                                material_phase_always_present1,
-                                               crystal, strain_free_parameters)
+                                               crystal, strain_free_parameters,
+                                               model_annote, True)
     meta = {}
     return strain_matrix12, strain_matrixs12, rotation_matrix12, col12, \
                  colx12, coly12, match_rate12, mat_global12, cnt12, meta, \
                  files_treated12, spots_len12, iR_pix12, fR_pix12, best_match12, check12
+
+def new_MP_multimat_function_v1(inputs_queue, outputs_queue, proc_id):
+    print(f'Initializing worker {proc_id}')
+    break_all = True
+    while break_all:
+        time.sleep(0.01)
+        if not inputs_queue.empty(): 
+            message = inputs_queue.get()
+            if message == 'STOP':
+                print(f'[{proc_id}] stopping')
+                break_all = False
+                break
+
+            num1, num2, meta = message
+            files_worked = []
+            while True:
+                if len(num1) == len(files_worked) or len(num1) == 0:
+                    #print("process finished")
+                    break_all = False
+                    break
+                for ijk in range(len(num1)):
+                    if ijk in files_worked:
+                        continue
+                    
+                    files, cnt, rotation_matrix, strain_matrix, strain_matrixs,\
+                    col,colx,coly,match_rate,spots_len,iR_pix,fR_pix,best_match,mat_global,\
+                    check,detectorparameters,pixelsize,angbins,\
+                    classhkl, hkl_all_class0, emin, emax,\
+                    material_, symmetry, lim_x, lim_y,\
+                    strain_calculation, ind_mat,\
+                    model_direc, tolerance,\
+                    matricies, ccd_label,\
+                    filename_bkg,intensity_threshold,\
+                    boxsize,bkg_treatment,\
+                    filenameDirec, experimental_prefix,\
+                    blacklist_file, text_file, \
+                    files_treated,try_previous1,\
+                    wb, temp_key, cor_file_directory, mode_spotCycle1,\
+                    softmax_threshold_global123,mr_threshold_global123,\
+                    cap_matchrate123, tolerance_strain123,\
+                    NumberMaxofFits123,fit_peaks_gaussian_global123,\
+                    FitPixelDev_global123,coeff123,coeff_overlap,\
+                    material0_limit, use_previous_UBmatrix_name1,\
+                    material_phase_always_present1, crystal, \
+                        strain_free_parameters, model_annote = num1[ijk]
+                    
+                    if np.all(check[cnt,:]) == 1:
+                        continue
+                    
+                    strain_matrix12, strain_matrixs12, \
+                    rotation_matrix12, col12, \
+                    colx12, coly12,match_rate12, mat_global12, cnt12,\
+                    files_treated12, spots_len12, \
+                    iR_pix12, fR_pix12, check12,\
+                    best_match12, _ = predict_preprocessMultiMatProcess(files, cnt, 
+                                                               rotation_matrix,strain_matrix,strain_matrixs,
+                                                               col,colx,coly,match_rate,spots_len,iR_pix,fR_pix,best_match,
+                                                               mat_global,
+                                                               check,detectorparameters,pixelsize,angbins,
+                                                               classhkl, hkl_all_class0, emin, emax,
+                                                               material_, symmetry,lim_x, lim_y,
+                                                               strain_calculation, ind_mat,
+                                                               model_direc, tolerance,
+                                                               matricies, ccd_label,
+                                                               filename_bkg,intensity_threshold,
+                                                               boxsize,bkg_treatment,
+                                                               filenameDirec, experimental_prefix,
+                                                               blacklist_file, text_file, 
+                                                               files_treated,try_previous1,
+                                                               wb, temp_key, cor_file_directory, mode_spotCycle1,
+                                                               softmax_threshold_global123,mr_threshold_global123,
+                                                               cap_matchrate123, tolerance_strain123,
+                                                               NumberMaxofFits123,
+                                                               fit_peaks_gaussian_global123,
+                                                               FitPixelDev_global123, coeff123,coeff_overlap,
+                                                               material0_limit,
+                                                               use_previous_UBmatrix_name1,
+                                                               material_phase_always_present1,
+                                                               crystal, strain_free_parameters,
+                                                               model_annote, False)
+                    files_worked.append(ijk)
+                    meta['proc_id'] = proc_id
+                    r_message = (strain_matrix12, strain_matrixs12, rotation_matrix12, col12, \
+                                  colx12, coly12, match_rate12, mat_global12, cnt12, meta, \
+                                  files_treated12, spots_len12, iR_pix12, fR_pix12, best_match12, check12)
+                    outputs_queue.put(r_message)
+    print("broke the worker while loop")  
                  
-                 
+def new_MP_multimat_functionGUI(inputs_queue, outputs_queue, proc_id, run_flag):
+    print(f'Initializing worker {proc_id}')
+    while True:
+        if not run_flag.value:
+            break
+        time.sleep(0.01)
+        if not inputs_queue.empty(): 
+            message = inputs_queue.get()
+            if message == 'STOP':
+                print(f'[{proc_id}] stopping')
+                break
+
+            num1, num2, meta = message
+            files_worked = []
+            while True:
+                if len(num1) == len(files_worked) or len(num1) == 0:
+                    print("process finished")
+                    break
+                for ijk in range(len(num1)):
+                    if ijk in files_worked:
+                        continue                       
+                    if not run_flag.value:
+                        num1, files_worked = [], []
+                        print(f'[{proc_id}] stopping')
+                        break
+                    
+                    files, cnt, rotation_matrix, strain_matrix, strain_matrixs,\
+                    col,colx,coly,match_rate,spots_len,iR_pix,fR_pix,best_match,mat_global,\
+                    check,detectorparameters,pixelsize,angbins,\
+                    classhkl, hkl_all_class0, emin, emax,\
+                    material_, symmetry, lim_x, lim_y,\
+                    strain_calculation, ind_mat,\
+                    model_direc, tolerance,\
+                    matricies, ccd_label,\
+                    filename_bkg,intensity_threshold,\
+                    boxsize,bkg_treatment,\
+                    filenameDirec, experimental_prefix,\
+                    blacklist_file, text_file, \
+                    files_treated,try_previous1,\
+                    wb, temp_key, cor_file_directory, mode_spotCycle1,\
+                    softmax_threshold_global123,mr_threshold_global123,\
+                    cap_matchrate123, tolerance_strain123,\
+                    NumberMaxofFits123,fit_peaks_gaussian_global123,\
+                    FitPixelDev_global123,coeff123,coeff_overlap,\
+                    material0_limit, use_previous_UBmatrix_name1,\
+                    material_phase_always_present1, crystal, \
+                        strain_free_parameters, model_annote = num1[ijk]
+                    
+                    if np.all(check[cnt,:]) == 1:
+                        continue
+                    
+                    strain_matrix12, strain_matrixs12, \
+                    rotation_matrix12, col12, colx12, coly12,\
+                    match_rate12, mat_global12, cnt12,\
+                    files_treated12, spots_len12, \
+                    iR_pix12, fR_pix12, check12,\
+                    best_match12, _ = predict_preprocessMultiMatProcess(files, cnt, 
+                                                               rotation_matrix,strain_matrix,strain_matrixs,
+                                                               col,colx,coly,match_rate,spots_len,iR_pix,fR_pix,best_match,
+                                                               mat_global,
+                                                               check,detectorparameters,pixelsize,angbins,
+                                                               classhkl, hkl_all_class0, emin, emax,
+                                                               material_, symmetry,lim_x, lim_y,
+                                                               strain_calculation, ind_mat,
+                                                               model_direc, tolerance,
+                                                               matricies, ccd_label,
+                                                               filename_bkg,intensity_threshold,
+                                                               boxsize,bkg_treatment,
+                                                               filenameDirec, experimental_prefix,
+                                                               blacklist_file, text_file, 
+                                                               files_treated,try_previous1,
+                                                               wb, temp_key, cor_file_directory, mode_spotCycle1,
+                                                               softmax_threshold_global123,mr_threshold_global123,
+                                                               cap_matchrate123, tolerance_strain123,
+                                                               NumberMaxofFits123,
+                                                               fit_peaks_gaussian_global123,
+                                                               FitPixelDev_global123, coeff123,coeff_overlap,
+                                                               material0_limit,
+                                                               use_previous_UBmatrix_name1,
+                                                               material_phase_always_present1,
+                                                               crystal, strain_free_parameters,
+                                                               model_annote, True)
+                    files_worked.append(ijk)
+                    meta['proc_id'] = proc_id
+                    r_message = (strain_matrix12, strain_matrixs12, rotation_matrix12, col12, \
+                                  colx12, coly12, match_rate12, mat_global12, cnt12, meta, \
+                                  files_treated12, spots_len12, iR_pix12, fR_pix12, best_match12, check12)
+                    outputs_queue.put(r_message)
+    print("broke the worker while loop")  
 
 def predict_ub_MM(seednumber, spots_in_center, classhkl, hkl_all_class0, 
                      filename, 
@@ -11999,36 +12244,558 @@ def predict_ub_MM(seednumber, spots_in_center, classhkl, hkl_all_class0,
     strain_crystal = np.zeros((3,3))
     strain_sample = np.zeros((3,3))
     material0_count = [0 for _ in range(len(material_))]
+    calcul_done = False
     objective_function1 = None
     
-    for igrain in range(matricies):        
-        ### old version
-        if mode_spotCycle == "slow":
-            # print("Slow mode of analysis")
-            first_match, max_mr, min_mr, spots, \
-                    case, mat, strain_crystal, \
-                        strain_sample, iR, fR  = get_orient_matMM(s_tth1, s_chi1,
-                                                                    material_, classhkl,
-                                                                    class_predicted1, predicted_hkl1,
-                                                                    input_params, hkl_all_class0,
-                                                                    max_pred1, dict_dp, 
-                                                                    spots1, dist, 
-                                                                    Gstar_metric0mat, B0mat,
-                                                                    softmax_threshold=softmax_threshold_global123,
-                                                                    mr_threshold=mr_threshold_global123,
-                                                                    tab_distance_classhkl_data0=tab_distance_classhkl_data0mat,
-                                                                    spots1_global = spots1_global,
-                                                                    coeff_overlap = coeff_overlap,
-                                                                    ind_mat=ind_mat,
-                                                                    strain_calculation=strain_calculation,
-                                                                    cap_matchrate123=cap_matchrate123,
-                                                                    material0_count=material0_count,
-                                                                    material0_limit=material0_limit,
-                                                                    igrain=igrain,
-                                                                    material_phase_always_present=material_phase_always_present,
-                                                                    strain_free_parameters=strain_free_parameters)
+    for igrain in range(matricies):
+        try_previous = try_previous1
+        max_mr, min_mr = 0, 0
+        iR, fR= 0, 0
+        case = "None"
+        
+        if use_om_user:
+            use_previous_UBmatrix_name = False
+            try_previous = False
+
+            temp_qsd = np.loadtxt(path_user_OM, delimiter=",")
+            # TODO include mat in the text file and read here
+            temp_qsd = temp_qsd.reshape((len(temp_qsd),3,3))
+            rotationmatrix_indexed = temp_qsd[igrain,:,:]
+            
+            mat = 1
+
+            if mat != 0:
+                Keymaterial_ = material_[int(mat)-1]
+                case = material_[int(mat)-1]
+                Bkey = B0mat[int(mat)-1]
+                input_params["mat"] = int(mat)
+                input_params["Bmat"] = Bkey
+            else:
+                Keymaterial_ = None
+                Bkey = None
+                input_params["mat"] = 0
+                input_params["Bmat"] = None
+                continue
+            
+            # print(rotationmatrix_indexed)
+            spots_prev, theo_spots_prev = remove_spotsMM(s_tth1, s_chi1, 
+                                                        rotationmatrix_indexed, 
+                                                        Keymaterial_, 
+                                                        input_params, 
+                                                        dict_dp['detectorparameters'], 
+                                                        dict_dp)
+            # print(spots_prev, theo_spots_prev)
+            newmatchrate = 100*len(spots_prev)/theo_spots_prev
+
+            ## Filter indexation by matching rate
+            if newmatchrate < cap_matchrate123:
+                strain_crystal, strain_sample, iR, fR = np.zeros((3,3)), np.zeros((3,3)), 0, 0
+                first_match = [0, 0, 0, 0, 0, 0, 0, 0, 0, \
+                                    0, 0, 0, 0, 0, np.zeros((3,3))]
+                spots = []
+                max_mr, min_mr = 0, 0
+            else:
+                if strain_calculation:
+                    strain_crystal, strain_sample, \
+                        iR, fR, rot_mat_UB = calculate_strains_fromUBMM(s_tth1, s_chi1, 
+                                                                        rotationmatrix_indexed, 
+                                                                        Keymaterial_, 
+                                                                        input_params, 
+                                                                        dict_dp['detectorparameters'], 
+                                                                        dict_dp, 
+                                                                        spots1,
+                                                                        Bkey,
+                                                                        strain_free_parameters)
+                else:
+                    strain_crystal, strain_sample, iR, fR = np.zeros((3,3)), np.zeros((3,3)), 0, 0
+                    rot_mat_UB = np.copy(rotationmatrix_indexed)
+                spots = spots_prev
+                expected = theo_spots_prev
+                max_mr, min_mr = 100*(len(spots)/expected), 100*(len(spots)/expected)
+                first_match = [0, 0, 0, 0, 0, 0, 0, 0, 0, \
+                                0, len(spots), expected, max_mr, 0, rot_mat_UB]
+                    
+            try_previous = False
+            calcul_done = True
+
+        
+        elif use_previous_UBmatrix_name:
+            try:
+                try_previous = False
+                ### try already indexed UB matricies
+                # xy = np.load('xy.npz')
+                # xy.zip.fp.close()
+                # xy.close()
+                with np.load(model_direc+"//rotation_matrix_indexed_1.npz") as load_objectind:
+                    # load_objectind = np.load(model_direc+"//rotation_matrix_indexed.npz")
+                    rotationmatrix_indexed = load_objectind["arr_0"]
+                    mat_global_indexed = load_objectind["arr_1"]
+                    match_rate_indexed = load_objectind["arr_2"]
+                    avg_match_rate_indexed = load_objectind["arr_3"]
+                calcul_done = False
+                for ind_mat_UBmat in range(len(rotationmatrix_indexed[igrain][0])):
+                    if calcul_done:
+                        continue
+                    
+                    if np.all(rotationmatrix_indexed[igrain][0][ind_mat_UBmat,:,:]) == 0:
+                        continue
+
+                    if match_rate_indexed[igrain][0][ind_mat_UBmat] < 0.8*avg_match_rate_indexed[igrain]:
+                        continue
+                    
+                    mat = mat_global_indexed[igrain][0][ind_mat_UBmat]
+                    if mat != 0:
+                        Keymaterial_ = material_[int(mat)-1]
+                        case = material_[int(mat)-1]
+                        Bkey = B0mat[int(mat)-1]
+                        input_params["mat"] = int(mat)
+                        input_params["Bmat"] = Bkey
+                    else:
+                        Keymaterial_ = None
+                        Bkey = None
+                        input_params["mat"] = 0
+                        input_params["Bmat"] = None
+                        continue
+                    
+                    spots_prev, theo_spots_prev = remove_spotsMM(s_tth1, s_chi1, 
+                                                             rotationmatrix_indexed[igrain][0][ind_mat_UBmat,:,:], 
+                                                             Keymaterial_, 
+                                                             input_params, 
+                                                             dict_dp['detectorparameters'], 
+                                                             dict_dp)
+
+                    newmatchrate = 100*len(spots_prev)/theo_spots_prev
+                    condition_prev = newmatchrate < 0.8*(match_rate_indexed[igrain][0][ind_mat_UBmat])
+                    current_spots = [len(list(set(spots_prev) & set(spots1_global[igr]))) > coeff_overlap*len(spots1_global[igr]) for igr in range(len(spots1_global))]
+                    
+                    if condition_prev or (newmatchrate <= cap_matchrate123) or np.any(current_spots):# or overlap:
+                        try_previous = try_previous1
+                    else:
+                        try_previous = False
+                        calcul_done = True
+                        if strain_calculation:
+                            strain_crystal, strain_sample, \
+                                iR, fR, rot_mat_UB = calculate_strains_fromUBMM(s_tth1, s_chi1, 
+                                                                                rotationmatrix_indexed[igrain][0][ind_mat_UBmat,:,:], 
+                                                                                Keymaterial_, 
+                                                                                input_params, 
+                                                                                dict_dp['detectorparameters'], 
+                                                                                dict_dp, 
+                                                                                spots1,
+                                                                                Bkey,
+                                                                                strain_free_parameters)
+                        else:
+                            strain_crystal, strain_sample, iR, fR = np.zeros((3,3)), np.zeros((3,3)), 0, 0
+                            rot_mat_UB = np.copy(rotationmatrix_indexed[igrain][0][ind_mat_UBmat,:,:])
+                        spots = spots_prev
+                        expected = theo_spots_prev
+                        max_mr, min_mr = 100*(len(spots)/expected), 100*(len(spots)/expected)
+                        first_match = [0, 0, 0, 0, 0, 0, 0, 0, 0, \
+                                        0, len(spots), expected, max_mr, 0, rot_mat_UB]
+                        break
+            except:
+                try_previous = False
+                calcul_done = False
+                
+        if try_previous and (cnt % lim_y == 0) and cnt != 0:
+            if np.all(rotation_matrix[igrain][0][cnt-lim_y,:,:]) == 0:
+                try_previous = False
+            else:
+                mat = mat_global[igrain][0][cnt-lim_y]
+                if mat != 0:
+                    Keymaterial_ = material_[int(mat)-1]
+                    case = material_[int(mat)-1]
+                    Bkey = B0mat[int(mat)-1]
+                    input_params["mat"] = int(mat)
+                    input_params["Bmat"] = Bkey
+                else:
+                    Keymaterial_ = None
+                    Bkey = None
+                    input_params["mat"] = 0
+                    input_params["Bmat"] = None
+                    continue
+                
+                spots_lr, theo_spots_lr = remove_spotsMM(s_tth1, s_chi1, 
+                                                         rotation_matrix[igrain][0][cnt-lim_y,:,:], 
+                                                         Keymaterial_, 
+                                                         input_params, 
+                                                         dict_dp['detectorparameters'], 
+                                                         dict_dp)
+
+                # last_row = len(spots_lr) <= coeff123*theo_spots_lr
+                newmatchrate = 100*(len(spots_lr)/theo_spots_lr)
+                condition_prev = newmatchrate < 0.9*(match_rate[igrain][0][cnt-lim_y])
+                last_row = condition_prev
+                if last_row or condition_prev: ## new spots less than 8 count, not good match SKIP
+                    try_previous = False
+                else:
+                    try_previous = True
+                    current_spots = [len(list(set(spots_lr) & set(spots1_global[igr]))) > coeff_overlap*len(spots1_global[igr]) for igr in range(len(spots1_global))]
+                    if np.any(current_spots):
+                        try_previous = False
+                        continue
+                    
+                    if strain_calculation:
+                        strain_crystal, strain_sample, \
+                            iR, fR, rot_mat_UB = calculate_strains_fromUBMM(s_tth1, s_chi1, 
+                                                                            rotation_matrix[igrain][0][cnt-lim_y,:,:], 
+                                                                            Keymaterial_, 
+                                                                            input_params, 
+                                                                            dict_dp['detectorparameters'], 
+                                                                            dict_dp, 
+                                                                            spots1,
+                                                                            Bkey,
+                                                                            strain_free_parameters)
+                    else:
+                        strain_crystal, strain_sample, iR, fR = np.zeros((3,3)), np.zeros((3,3)), 0, 0
+                        rot_mat_UB = np.copy(rotation_matrix[igrain][0][cnt-lim_y,:,:])
+                    spots = spots_lr
+                    expected = theo_spots_lr
+                    max_mr, min_mr = 100*(len(spots_lr)/theo_spots_lr), 100*(len(spots_lr)/theo_spots_lr)
+                    first_match = [0, 0, 0, 0, 0, 0, 0, 0, 0, \
+                                    0, len(spots), expected, max_mr, 0, rot_mat_UB]   
+                
+        elif try_previous and (cnt % lim_y != 0):
+            last_row = True
+            left_row = True
+            condition_prev = True
+            condition_prev1 = True
+            if np.all(rotation_matrix[igrain][0][cnt-1,:,:]) == 0:
+                left_row = True
+            else:
+                mat = mat_global[igrain][0][cnt-1]
+                if mat != 0:
+                    Keymaterial_ = material_[int(mat)-1]
+                    case = material_[int(mat)-1]
+                    Bkey = B0mat[int(mat)-1]
+                    input_params["mat"] = int(mat)
+                    input_params["Bmat"] = Bkey
+                else:
+                    Keymaterial_ = None
+                    Bkey = None
+                    input_params["mat"] = 0
+                    input_params["Bmat"] = None
+                    continue
+                ## new row start when % == 0
+                ## use left index pixels matrix values
+                spots_left, theo_spots_left = remove_spotsMM(s_tth1, s_chi1, 
+                                                         rotation_matrix[igrain][0][cnt-1,:,:], 
+                                                         Keymaterial_, 
+                                                         input_params, 
+                                                         dict_dp['detectorparameters'], 
+                                                         dict_dp)
+
+                # left_row = len(spots_left) <= coeff123*theo_spots_left 
+                newmatchrate = 100*(len(spots_left)/theo_spots_left)
+                condition_prev = newmatchrate < 0.9*(match_rate[igrain][0][cnt-1])
+                left_row = condition_prev
+            if cnt >= lim_y:
+                if np.all(rotation_matrix[igrain][0][cnt-lim_y,:,:]) == 0:
+                    last_row = True   
+                else:
+                    mat = mat_global[igrain][0][cnt-lim_y]
+                    if mat != 0:
+                        Keymaterial_ = material_[int(mat)-1]
+                        case = material_[int(mat)-1]
+                        Bkey = B0mat[int(mat)-1]
+                        input_params["mat"] = int(mat)
+                        input_params["Bmat"] = Bkey
+                    else:
+                        Keymaterial_ = None
+                        Bkey = None
+                        input_params["mat"] = 0
+                        input_params["Bmat"] = None
+                        continue
+                    ## use bottom index pixels matrix values
+                    spots_lr, theo_spots_lr = remove_spotsMM(s_tth1, s_chi1, 
+                                                             rotation_matrix[igrain][0][cnt-lim_y,:,:], 
+                                                             Keymaterial_, 
+                                                             input_params, 
+                                                             dict_dp['detectorparameters'], 
+                                                             dict_dp)
+                    
+                    # last_row = len(spots_lr) <= coeff123*theo_spots_lr 
+                    newmatchrate1 = 100*(len(spots_lr)/theo_spots_lr)
+                    condition_prev1 = newmatchrate1 < 0.9*(match_rate[igrain][0][cnt-lim_y])
+                    last_row = condition_prev1
+            if (left_row and last_row): 
+                try_previous = False
+            elif condition_prev and condition_prev1:
+                try_previous = False
+            elif not left_row and not last_row:
+                try_previous = True
+                
+                if len(spots_lr) > len(spots_left):
+                    current_spots = [len(list(set(spots_lr) & set(spots1_global[igr]))) > coeff_overlap*len(spots1_global[igr]) for igr in range(len(spots1_global))]
+                    if np.any(current_spots):
+                        try_previous = False
+                        continue
+                    
+                    mat = mat_global[igrain][0][cnt-lim_y]
+                    if mat != 0:
+                        Keymaterial_ = material_[int(mat)-1]
+                        case = material_[int(mat)-1]
+                        Bkey = B0mat[int(mat)-1]
+                        input_params["mat"] = int(mat)
+                        input_params["Bmat"] = Bkey
+                    else:
+                        Keymaterial_ = None
+                        Bkey = None
+                        input_params["mat"] = 0
+                        input_params["Bmat"] = None
+                        continue
+                    
+                    if strain_calculation:
+                        strain_crystal, strain_sample, \
+                            iR, fR, rot_mat_UB = calculate_strains_fromUBMM(s_tth1, s_chi1, 
+                                                                            rotation_matrix[igrain][0][cnt-lim_y,:,:], 
+                                                                            Keymaterial_, 
+                                                                            input_params, 
+                                                                            dict_dp['detectorparameters'], 
+                                                                            dict_dp, 
+                                                                            spots1,
+                                                                            Bkey,
+                                                                            strain_free_parameters)
+                    else:
+                        strain_crystal, strain_sample, iR, fR = np.zeros((3,3)), np.zeros((3,3)), 0, 0
+                        rot_mat_UB = np.copy(rotation_matrix[igrain][0][cnt-lim_y,:,:])
+                    spots = spots_lr
+                    expected = theo_spots_lr
+                    max_mr, min_mr = 100*(len(spots_lr)/theo_spots_lr), 100*(len(spots_lr)/theo_spots_lr)
+                    first_match = [0, 0, 0, 0, 0, 0, 0, 0, 0, \
+                                0, len(spots), expected, max_mr, 0, rot_mat_UB]
+                else:
+                    current_spots = [len(list(set(spots_left) & set(spots1_global[igr]))) > coeff_overlap*len(spots1_global[igr]) for igr in range(len(spots1_global))]
+                    if np.any(current_spots):
+                        try_previous = False
+                        continue
+
+                    mat = mat_global[igrain][0][cnt-1]
+                    if mat != 0:
+                        Keymaterial_ = material_[int(mat)-1]
+                        case = material_[int(mat)-1]
+                        Bkey = B0mat[int(mat)-1]
+                        input_params["mat"] = int(mat)
+                        input_params["Bmat"] = Bkey
+                    else:
+                        Keymaterial_ = None
+                        Bkey = None
+                        input_params["mat"] = 0
+                        input_params["Bmat"] = None
+                        continue
+                    
+                    if strain_calculation:
+                        strain_crystal, strain_sample, \
+                            iR, fR, rot_mat_UB = calculate_strains_fromUBMM(s_tth1, s_chi1, 
+                                                                            rotation_matrix[igrain][0][cnt-1,:,:], 
+                                                                            Keymaterial_, 
+                                                                            input_params, 
+                                                                            dict_dp['detectorparameters'], 
+                                                                            dict_dp, 
+                                                                            spots1,
+                                                                            Bkey,
+                                                                            strain_free_parameters)
+                    else:
+                        strain_crystal, strain_sample, iR, fR = np.zeros((3,3)), np.zeros((3,3)), 0, 0
+                        rot_mat_UB = np.copy(rotation_matrix[igrain][0][cnt-1,:,:])
+                    spots = spots_left
+                    expected = theo_spots_left
+                    max_mr, min_mr = 100*(len(spots_left)/theo_spots_left), 100*(len(spots_left)/theo_spots_left)
+                    first_match = [0, 0, 0, 0, 0, 0, 0, 0, 0, \
+                                0, len(spots), expected, max_mr, 0, rot_mat_UB]    
+            
+            elif not left_row and last_row:
+                try_previous = True
+                current_spots = [len(list(set(spots_left) & set(spots1_global[igr]))) > coeff_overlap*len(spots1_global[igr]) for igr in range(len(spots1_global))]
+                if np.any(current_spots):
+                    try_previous = False
+                    continue
+                
+                mat = mat_global[igrain][0][cnt-1]
+                if mat != 0:
+                    Keymaterial_ = material_[int(mat)-1]
+                    case = material_[int(mat)-1]
+                    Bkey = B0mat[int(mat)-1]
+                    input_params["mat"] = int(mat)
+                    input_params["Bmat"] = Bkey
+                else:
+                    Keymaterial_ = None
+                    Bkey = None
+                    input_params["mat"] = 0
+                    input_params["Bmat"] = None
+                    continue
+                
+                if strain_calculation:
+                    strain_crystal, strain_sample, \
+                        iR, fR, rot_mat_UB = calculate_strains_fromUBMM(s_tth1, s_chi1, 
+                                                                        rotation_matrix[igrain][0][cnt-1,:,:], 
+                                                                        Keymaterial_, 
+                                                                        input_params, 
+                                                                        dict_dp['detectorparameters'], 
+                                                                        dict_dp, 
+                                                                        spots1,
+                                                                        Bkey,
+                                                                        strain_free_parameters)
+                else:
+                    strain_crystal, strain_sample, iR, fR = np.zeros((3,3)), np.zeros((3,3)), 0, 0
+                    rot_mat_UB = np.copy(rotation_matrix[igrain][0][cnt-1,:,:])
+                spots = spots_left
+                expected = theo_spots_left
+                max_mr, min_mr = 100*(len(spots_left)/theo_spots_left), 100*(len(spots_left)/theo_spots_left)
+                first_match = [0, 0, 0, 0, 0, 0, 0, 0, 0, \
+                                0, len(spots), expected, max_mr, 0, rot_mat_UB]  
+                    
+            elif left_row and not last_row:
+                try_previous = True
+                current_spots = [len(list(set(spots_lr) & set(spots1_global[igr]))) > coeff_overlap*len(spots1_global[igr]) for igr in range(len(spots1_global))]
+                if np.any(current_spots):
+                    try_previous = False
+                    continue
+                
+                mat = mat_global[igrain][0][cnt-lim_y]
+                if mat != 0:
+                    Keymaterial_ = material_[int(mat)-1]
+                    case = material_[int(mat)-1]
+                    Bkey = B0mat[int(mat)-1]
+                    input_params["mat"] = int(mat)
+                    input_params["Bmat"] = Bkey
+                else:
+                    Keymaterial_ = None
+                    Bkey = None
+                    input_params["mat"] = 0
+                    input_params["Bmat"] = None
+                    continue
+
+                if strain_calculation:
+                    strain_crystal, strain_sample, \
+                        iR, fR, rot_mat_UB = calculate_strains_fromUBMM(s_tth1, s_chi1, 
+                                                                        rotation_matrix[igrain][0][cnt-lim_y,:,:], 
+                                                                        Keymaterial_, 
+                                                                        input_params, 
+                                                                        dict_dp['detectorparameters'], 
+                                                                        dict_dp, 
+                                                                        spots1,
+                                                                        Bkey,
+                                                                        strain_free_parameters)
+                else:
+                    strain_crystal, strain_sample, iR, fR = np.zeros((3,3)), np.zeros((3,3)), 0, 0
+                    rot_mat_UB = np.copy(rotation_matrix[igrain][0][cnt-lim_y,:,:])
+                    
+                spots = spots_lr
+                expected = theo_spots_lr    
+                max_mr, min_mr = 100*(len(spots_lr)/theo_spots_lr), 100*(len(spots_lr)/theo_spots_lr)
+                first_match = [0, 0, 0, 0, 0, 0, 0, 0, 0, \
+                                0, len(spots), expected, max_mr, 0, rot_mat_UB]  
         else:
-            print("selected mode of treating spots is not ready")
+            try_previous = False
+        
+        if not try_previous and not calcul_done:
+            ### old version
+            if mode_spotCycle == "slow":
+                # print("Slow mode of analysis")
+                first_match, max_mr, min_mr, spots, \
+                        case, mat, strain_crystal, \
+                            strain_sample, iR, fR  = get_orient_matMM(s_tth1, 
+                                                                      s_chi1,
+                                                                      material_, 
+                                                                      classhkl,
+                                                                      class_predicted1, 
+                                                                      predicted_hkl1,
+                                                                      input_params, 
+                                                                      hkl_all_class0,
+                                                                      max_pred1, 
+                                                                      dict_dp, 
+                                                                      spots1, 
+                                                                      dist, 
+                                                                      Gstar_metric0mat, 
+                                                                      B0mat,
+                                                                      softmax_threshold=softmax_threshold_global123,
+                                                                      mr_threshold=mr_threshold_global123,
+                                                                      tab_distance_classhkl_data0=tab_distance_classhkl_data0mat,
+                                                                      spots1_global = spots1_global,
+                                                                      coeff_overlap = coeff_overlap,
+                                                                      ind_mat=ind_mat,
+                                                                      strain_calculation=strain_calculation,
+                                                                      cap_matchrate123=cap_matchrate123,
+                                                                      material0_count=material0_count,
+                                                                      material0_limit=material0_limit,
+                                                                      igrain=igrain,
+                                                                      material_phase_always_present=material_phase_always_present,
+                                                                      strain_free_parameters=strain_free_parameters)
+            elif mode_spotCycle == "graphmode":
+                # print("Fast mode of analysis")
+                first_match, max_mr, min_mr, spots, \
+                case, mat, strain_crystal, \
+                    strain_sample, iR, fR,\
+                    objective_function1  = get_orient_mat_graphv1_MM(s_tth1, 
+                                                                     s_chi1,
+                                                                     material_, 
+                                                                     classhkl,
+                                                                     class_predicted1, 
+                                                                     predicted_hkl1,
+                                                                     input_params, 
+                                                                     hkl_all_class0,
+                                                                     max_pred1, 
+                                                                     dict_dp, 
+                                                                     spots1, 
+                                                                     dist, 
+                                                                     Gstar_metric0mat, 
+                                                                     B0mat,
+                                                                     softmax_threshold=softmax_threshold_global123,
+                                                                     mr_threshold=mr_threshold_global123,
+                                                                     tab_distance_classhkl_data0=tab_distance_classhkl_data0mat,
+                                                                     spots1_global = spots1_global,
+                                                                     coeff_overlap = coeff_overlap,
+                                                                     ind_mat=ind_mat, 
+                                                                     strain_calculation=strain_calculation,
+                                                                     cap_matchrate123=cap_matchrate123,
+                                                                     material0_count=material0_count,
+                                                                     material0_limit=material0_limit,
+                                                                     igrain=igrain,
+                                                                     material_phase_always_present=material_phase_always_present,
+                                                                     objective_function= objective_function1,
+                                                                     strain_free_parameters=strain_free_parameters)
+            elif mode_spotCycle == "update_reupdate":
+                # print("Fast mode of analysis")
+                first_match, max_mr, min_mr, spots, \
+                    case, mat, strain_crystal, \
+                    strain_sample, iR, fR, objective_function1,\
+                    s_tth1, s_chi1, class_predicted1, \
+                    predicted_hkl1, max_pred1, dist = get_orient_mat_repredict_MM(
+                                                                        s_tth1, 
+                                                                        s_chi1,
+                                                                        material_, 
+                                                                        classhkl,
+                                                                        class_predicted1, 
+                                                                        predicted_hkl1,
+                                                                        input_params, 
+                                                                        hkl_all_class0, 
+                                                                        max_pred1, 
+                                                                        dict_dp, 
+                                                                        spots1, 
+                                                                        dist, 
+                                                                        Gstar_metric0mat, 
+                                                                        B0mat, 
+                                                                        softmax_threshold=softmax_threshold_global123,
+                                                                        mr_threshold=mr_threshold_global123,
+                                                                        tab_distance_classhkl_data0=tab_distance_classhkl_data0mat,
+                                                                        spots1_global = spots1_global,
+                                                                        coeff_overlap = coeff_overlap,
+                                                                        ind_mat=ind_mat,
+                                                                        strain_calculation=strain_calculation,
+                                                                        cap_matchrate123=cap_matchrate123,
+                                                                        material0_count=material0_count,
+                                                                        material0_limit=material0_limit,
+                                                                        igrain=igrain,
+                                                                        material_phase_always_present=material_phase_always_present,
+                                                                        objective_function= objective_function1,
+                                                                        crystal=crystal,
+                                                                        angbins=angbins,
+                                                                        wb=wb, temp_key=temp_key,
+                                                                        strain_free_parameters=strain_free_parameters,
+                                                                        model_direc=model_direc)
+            else:
+                print("selected mode of treating spots is not ready")
                 
         for ispot in spots:
             spots1.append(ispot)
@@ -12048,10 +12815,569 @@ def predict_ub_MM(seednumber, spots_in_center, classhkl, hkl_all_class0,
         if np.all(first_match[14] != 0):
             check[igrain] = 1
         
-        material0_count[mat-1] = material0_count[mat-1]+1
+        material0_count[int(mat)-1] = material0_count[int(mat)-1]+1
 
     return best_matrix, mr_highest, mat_highest, strain_matrix, strain_matrixs, ir_pixels, fr_pixels, spots_len, best_match, check
 
+
+def get_orient_mat_repredict_MM(s_tth, s_chi, material0_, classhkl, class_predicted, predicted_hkl,
+                       input_params, hkl_all_class0, max_pred, dict_dp, spots, 
+                       dist, Gstar_metric0, B0, softmax_threshold=0.85, mr_threshold=0.85, 
+                       tab_distance_classhkl_data0=None, spots1_global=None,
+                       coeff_overlap = None, ind_mat=None, strain_calculation=None, cap_matchrate123=None,
+                       material0_count=None, material0_limit=None,
+                       igrain=None, material_phase_always_present=None, objective_function=None, crystal=None,
+                       angbins=None, wb=None, temp_key=None, strain_free_parameters=None, model_direc=None):    
+    if objective_function == None:
+        call_global()
+        
+        init_mr = 0
+        init_mat = 0
+        init_material = "None"
+        init_case = "None"
+        init_B = None
+        final_match_rate = 0
+        match_rate_mma = []
+        final_rmv_ind = []
+        
+        list_of_sets = []
+        for ii in range(0, min(nb_spots_consider, len(dist))):
+            if max_pred[ii] < softmax_threshold:
+                continue 
+            
+            a1 = np.round(dist[ii],3)
+
+            for i in range(0, min(nb_spots_consider, len(dist))):
+                if ii==i:
+                    continue
+                if (ii,i) in list_of_sets or (i,ii) in list_of_sets:
+                    continue
+                if max_pred[i] < softmax_threshold:
+                    continue
+                
+                belong_same_mat = False
+                for ino, imat in enumerate(material0_):
+                    if ino == 0:
+                        if class_predicted[ii] < ind_mat[ino] and class_predicted[i] < ind_mat[ino] :
+                            tab_distance_classhkl_data = tab_distance_classhkl_data0[ino] 
+                            tolerance_new = input_params["tolerance"][ino]
+                            hkl1 = hkl_all_class0[ino][str(predicted_hkl[ii])]
+                            hkl1_list = np.array(hkl1)
+                            hkl2 = hkl_all_class0[ino][str(predicted_hkl[i])]
+                            hkl2_list = np.array(hkl2)
+                            Gstar_metric = Gstar_metric0[ino] 
+                            belong_same_mat = True
+                    else:
+                        if (ind_mat[ino-1] <= class_predicted[ii] < ind_mat[ino]) and \
+                                            (ind_mat[ino-1] <= class_predicted[i] < ind_mat[ino]):
+                            tab_distance_classhkl_data = tab_distance_classhkl_data0[ino]
+                            tolerance_new = input_params["tolerance"][ino]
+                            hkl1 = hkl_all_class0[ino][str(predicted_hkl[ii])]
+                            hkl1_list = np.array(hkl1)
+                            hkl2 = hkl_all_class0[ino][str(predicted_hkl[i])]
+                            hkl2_list = np.array(hkl2)
+                            Gstar_metric = Gstar_metric0[ino]
+                            belong_same_mat = True
+                if not belong_same_mat:
+                    continue
+                tab_angulardist_temp = CP.AngleBetweenNormals(hkl1_list, hkl2_list, Gstar_metric)
+                np.putmask(tab_angulardist_temp, np.abs(tab_angulardist_temp) < 0.001, 400)
+                list_ = np.where(np.abs(tab_angulardist_temp-a1[i]) < tolerance_new)
+                if len(list_[0]) != 0:
+                    list_of_sets.append((ii,i))
+
+        ## build a direct connection graph object
+        graph_obj = nx.DiGraph(list_of_sets)
+        connected_nodes_length = []
+        connected_nodes = [[] for i in range(len(graph_obj))]
+        for i,line in enumerate(nx.generate_adjlist(graph_obj)):
+            connected_nodes_length.append(len(line.split(" ")))
+            connected_nodes[i].append([int(jj) for jj in line.split(" ")])
+        
+        ## sort by maximum node occurance
+        connected_nodes_length = np.array(connected_nodes_length)
+        connected_nodes_length_sort_ind = np.argsort(connected_nodes_length)[::-1]
+  
+        mat = 0
+        case = "None"
+        tried_spots = []
+        
+        if len(graph_obj) == 0:
+            print("no object in graph network")
+            
+        objective_function = []
+        for toplist in range(len(graph_obj)):
+            # ## continue if less than 3 connections are found for a graph
+            # if connected_nodes_length[connected_nodes_length_sort_ind[toplist]] < 2:
+            #     continue
+            for j in connected_nodes[connected_nodes_length_sort_ind[toplist]][0]:
+                init_mr = 0
+                final_match_rate = 0
+                final_rmv_ind = []
+                all_stats = []
+                for i in connected_nodes[connected_nodes_length_sort_ind[toplist]][0]:
+                    if j == i:
+                        continue
+                    
+                    if j in tried_spots and i in tried_spots:
+                        continue
+                    
+                    #TODO replace by simpler step
+                    mat = 0
+                    case = "None"
+                    input_params["mat"] = mat
+                    input_params["Bmat"] = None
+                    for ino, imat in enumerate(material0_):
+                        if ino == 0:
+                            if class_predicted[i] < ind_mat[ino] and class_predicted[j] < ind_mat[ino] :
+                                tab_distance_classhkl_data = tab_distance_classhkl_data0[ino] 
+                                hkl_all_class = hkl_all_class0[ino] 
+                                material_ = imat
+                                B = B0[ino] 
+                                Gstar_metric = Gstar_metric0[ino] 
+                                case = imat
+                                mat = ino + 1
+                                if material0_count[ino] >= material0_limit[ino]:
+                                    mat = 0
+                                    case="None"
+                                input_params["mat"] = mat
+                                input_params["Bmat"] = B
+                        else:
+                            if (ind_mat[ino-1] <= class_predicted[i] < ind_mat[ino]) and \
+                                                (ind_mat[ino-1] <= class_predicted[j] < ind_mat[ino]):
+                                tab_distance_classhkl_data = tab_distance_classhkl_data0[ino]
+                                hkl_all_class = hkl_all_class0[ino] 
+                                material_ = imat
+                                B = B0[ino]
+                                Gstar_metric = Gstar_metric0[ino]
+                                case = imat  
+                                mat = ino + 1
+                                if material0_count[ino] >= material0_limit[ino]:
+                                    mat = 0
+                                    case="None"
+                                input_params["mat"] = mat
+                                input_params["Bmat"] = B
+                    
+                    if mat == 0:
+                        continue   
+                    
+                    tth_chi_spot1 = np.array([s_tth[i], s_chi[i]])
+                    tth_chi_spot2 = np.array([s_tth[j], s_chi[j]])         
+        
+                    hkl1 = hkl_all_class[str(predicted_hkl[i])]
+                    hkl1_list = np.array(hkl1)
+                    hkl2 = hkl_all_class[str(predicted_hkl[j])]
+                    hkl2_list = np.array(hkl2)
+                    
+                    actual_mat, flagAM, \
+                    spot1_hkl, spot2_hkl = propose_UB_matrixMM(hkl1_list, hkl2_list, 
+                                                            Gstar_metric, input_params, 
+                                                            dist[i,j],
+                                                            tth_chi_spot1, tth_chi_spot2, 
+                                                            B, method=0)
+
+                    if flagAM:
+                        continue
+                    
+                    for iind in range(len(actual_mat)):
+                        rot_mat123 = actual_mat[iind]
+                        rmv_ind, theospots = remove_spotsMM(s_tth, s_chi, rot_mat123, 
+                                                            material_, input_params, 
+                                                            dict_dp['detectorparameters'], dict_dp)
+                        match_rate = np.round(100 * len(rmv_ind)/theospots, 3)                        
+                        match_rate_mma.append(match_rate)
+
+                        if match_rate > init_mr:
+                            final_rmv_ind = rmv_ind                    
+                            init_mat = np.copy(mat)
+                            input_params["mat"] = init_mat
+                            init_material = np.copy(material_)
+                            init_case = np.copy(case)
+                            init_B = np.copy(B)  
+                            input_params["Bmat"] = init_B                                     
+                            final_match_rate = np.copy(match_rate)
+                            init_mr = np.copy(match_rate)                   
+                            all_stats = [i, j, \
+                                         spot1_hkl[iind], spot2_hkl[iind], \
+                                        tth_chi_spot1, tth_chi_spot2, \
+                                        dist[i,j], tab_distance_classhkl_data[i,j], np.round(max_pred[i]*100,3), \
+                                        np.round(max_pred[j]*100,3), len(rmv_ind), theospots,\
+                                        match_rate, 0.0, rot_mat123, init_mat, init_material, init_B, init_case]
+                    tried_spots.append(i)                 
+                    
+                if (final_match_rate <= cap_matchrate123): ## Nothing found!! 
+                    ## Either peaks are not well defined or not found within tolerance and prediction accuracy
+                    all_stats = [0, 0, 0, 0, 0, 0, 0, 0, 0, \
+                                        0, 0, 0, 0, 0, np.zeros((3,3))]
+                    max_mr, min_mr = 0, 0
+                    spot_ind = []
+                    mat = 0
+                    input_params["mat"] = 0
+                    case = "None"
+                    objective_function.append([0, [], []])
+                else:
+                    objective_function.append([final_match_rate, final_rmv_ind, all_stats])     
+                tried_spots.append(j)
+    
+    sort_ind = []
+    for ijk in objective_function:
+        sort_ind.append(ijk[0])
+    sort_ind = np.array(sort_ind)
+    sort_ind = np.argsort(sort_ind)[::-1]
+    
+    for gr_count123 in range(len(sort_ind)):           
+        max_mr = objective_function[sort_ind[gr_count123]][0]
+        rmv_ind = objective_function[sort_ind[gr_count123]][1]
+        all_stats = objective_function[sort_ind[gr_count123]][2]
+        
+        if len(rmv_ind) == 0 or max_mr==0:
+            continue
+        
+        mat = all_stats[15]
+        if material_phase_always_present != None:
+            mat1 = 0
+            for igr, iii in enumerate(material_phase_always_present):
+                if igrain==igr and iii == mat:
+                    mat1 = np.copy(mat)
+        else:
+            mat1 = np.copy(mat)
+            
+        if mat1 == 0:
+            continue                    
+        
+        if material0_count[int(mat)-1] >= material0_limit[int(mat)-1]:
+            mat = 0
+            continue            
+
+        current_spots = [len(list(set(rmv_ind) & set(spots1_global[igr])))> coeff_overlap*len(spots1_global[igr]) for igr in range(len(spots1_global))]
+        
+        if np.any(current_spots):
+            continue
+
+        input_params["mat"] = all_stats[15]
+        if strain_calculation:
+            dev_strain, strain_sample, iR, fR, rot_mat_UB = calculate_strains_fromUBMM(s_tth, s_chi, all_stats[14], str(all_stats[16]), 
+                                                                 input_params, dict_dp['detectorparameters'], 
+                                                                 dict_dp, spots, all_stats[17],
+                                                                 strain_free_parameters)
+        else:
+            dev_strain, strain_sample, iR, fR = np.zeros((3,3)), np.zeros((3,3)), 0, 0
+            rot_mat_UB = np.copy(all_stats[14])
+        all_stats[14] = rot_mat_UB
+        
+        ## delete the indexed spots and repredict the spots HKL in the absence of indexed spots
+        ## maybe it makes it easier to detect some grains
+        ##update list
+        # TODO
+        # s_tth = np.delete(s_tth, rmv_ind, axis=0)
+        # s_chi = np.delete(s_chi, rmv_ind, axis=0)
+        # s_tth[rmv_ind] = np.nan
+        # s_chi[rmv_ind] = np.nan
+        sorted_data = np.transpose(np.array([s_tth/2., s_chi]))
+        tabledistancerandom = np.transpose(GT.calculdist_from_thetachi(sorted_data, sorted_data))
+        spots_in_center = np.arange(0, len(s_tth))
+        # spots_in_center = spots_in_center[:nb_spots_consider]
+        codebars_all = []
+        for i in spots_in_center:
+            spotangles = tabledistancerandom[i]
+            #TODO
+            spots_rmv = [i]
+            for irmv in rmv_ind:
+                spots_rmv.append(irmv)
+            spotangles = np.delete(spotangles, spots_rmv)# removing the self distance
+            
+            codebars = np.histogram(spotangles, bins=angbins)[0]
+            # codebars = histogram1d(spotangles, range=[min(angbins),max(angbins)], bins=len(angbins)-1)
+            ## normalize the same way as training data
+            max_codebars = np.max(codebars)
+            codebars = codebars/ max_codebars
+            codebars_all.append(codebars)
+        ## reshape for the model to predict all spots at once
+        codebars = np.array(codebars_all)
+        
+        ## Do prediction of all spots at once
+        try:
+            prediction = predict_DNN(codebars, wb, temp_key)
+        except:
+            prediction = predict_CNN_DNN(codebars, model_direc, material0_)
+            
+        max_pred = np.max(prediction, axis = 1)
+        class_predicted = np.argmax(prediction, axis = 1)
+        predicted_hkl123 = classhkl[class_predicted]
+        predicted_hkl123 = predicted_hkl123.astype(int)
+
+        objective_function = None # to recalculate
+        return all_stats, np.max(max_mr), np.min(max_mr), \
+                rmv_ind, str(all_stats[18]), all_stats[15], dev_strain, strain_sample, iR, fR, objective_function,\
+                    s_tth, s_chi, class_predicted, predicted_hkl123, max_pred, tabledistancerandom
+    
+    all_stats = [0, 0, 0, 0, 0, 0, 0, 0, 0, \
+                        0, 0, 0, 0, 0, np.zeros((3,3))]
+    max_mr, min_mr = 0, 0
+    spot_ind = []
+    mat = 0
+    input_params["mat"] = 0
+    case = "None"
+    objective_function = None # to recalculate
+    return all_stats, max_mr, min_mr, spot_ind, case, mat, np.zeros((3,3)), np.zeros((3,3)), 0, 0, objective_function,\
+            s_tth, s_chi, class_predicted, predicted_hkl, max_pred, dist
+
+def get_orient_mat_graphv1_MM(s_tth, s_chi, material0_, classhkl, class_predicted, predicted_hkl,
+                               input_params, hkl_all_class0, max_pred, dict_dp, spots, 
+                               dist, Gstar_metric0, B0, softmax_threshold=0.85, mr_threshold=0.85, 
+                               tab_distance_classhkl_data0=None, spots1_global=None,
+                               coeff_overlap = None, ind_mat=None, strain_calculation=None, cap_matchrate123=None,
+                               material0_count=None, material0_limit=None, igrain=None, material_phase_always_present=None,
+                               strain_free_parameters=None, objective_function=None):
+    
+    if objective_function == None:
+        call_global()
+        
+        init_mr = 0
+        init_mat = 0
+        init_material = "None"
+        init_case = "None"
+        init_B = None
+        final_match_rate = 0
+        match_rate_mma = []
+        final_rmv_ind = []
+        
+        list_of_sets = []
+        for ii in range(0, min(nb_spots_consider, len(dist))):
+            if max_pred[ii] < softmax_threshold:
+                continue 
+            
+            a1 = np.round(dist[ii],3)
+
+            for i in range(0, min(nb_spots_consider, len(dist))):
+                if ii==i:
+                    continue
+                if (ii,i) in list_of_sets or (i,ii) in list_of_sets:
+                    continue
+                if max_pred[i] < softmax_threshold:
+                    continue
+                
+                belong_same_mat = False
+                for ino, imat in enumerate(material0_):
+                    if ino == 0:
+                        if class_predicted[ii] < ind_mat[ino] and class_predicted[i] < ind_mat[ino] :
+                            tab_distance_classhkl_data = tab_distance_classhkl_data0[ino] 
+                            tolerance_new = input_params["tolerance"][ino]
+                            hkl1 = hkl_all_class0[ino][str(predicted_hkl[ii])]
+                            hkl1_list = np.array(hkl1)
+                            hkl2 = hkl_all_class0[ino][str(predicted_hkl[i])]
+                            hkl2_list = np.array(hkl2)
+                            Gstar_metric = Gstar_metric0[ino] 
+                            belong_same_mat = True
+                    else:
+                        if (ind_mat[ino-1] <= class_predicted[ii] < ind_mat[ino]) and \
+                                            (ind_mat[ino-1] <= class_predicted[i] < ind_mat[ino]):
+                            tab_distance_classhkl_data = tab_distance_classhkl_data0[ino]
+                            tolerance_new = input_params["tolerance"][ino]
+                            hkl1 = hkl_all_class0[ino][str(predicted_hkl[ii])]
+                            hkl1_list = np.array(hkl1)
+                            hkl2 = hkl_all_class0[ino][str(predicted_hkl[i])]
+                            hkl2_list = np.array(hkl2)
+                            Gstar_metric = Gstar_metric0[ino]
+                            belong_same_mat = True
+                if not belong_same_mat:
+                    continue
+                tab_angulardist_temp = CP.AngleBetweenNormals(hkl1_list, hkl2_list, Gstar_metric)
+                np.putmask(tab_angulardist_temp, np.abs(tab_angulardist_temp) < 0.001, 400)
+                list_ = np.where(np.abs(tab_angulardist_temp-a1[i]) < tolerance_new)
+                if len(list_[0]) != 0:
+                    list_of_sets.append((ii,i))
+
+        ## build a direct connection graph object
+        graph_obj = nx.DiGraph(list_of_sets)
+        connected_nodes_length = []
+        connected_nodes = [[] for i in range(len(graph_obj))]
+        for i,line in enumerate(nx.generate_adjlist(graph_obj)):
+            connected_nodes_length.append(len(line.split(" ")))
+            connected_nodes[i].append([int(jj) for jj in line.split(" ")])
+        
+        ## sort by maximum node occurance
+        connected_nodes_length = np.array(connected_nodes_length)
+        connected_nodes_length_sort_ind = np.argsort(connected_nodes_length)[::-1]
+  
+        mat = 0
+        case = "None"
+        tried_spots = []
+        
+        if len(graph_obj) == 0:
+            print("no object in graph network")
+            
+        objective_function = []
+        for toplist in range(len(graph_obj)):
+            # ## continue if less than 3 connections are found for a graph
+            # if connected_nodes_length[connected_nodes_length_sort_ind[toplist]] < 2:
+            #     continue
+            for j in connected_nodes[connected_nodes_length_sort_ind[toplist]][0]:
+                init_mr = 0
+                final_match_rate = 0
+                final_rmv_ind = []
+                all_stats = []
+                for i in connected_nodes[connected_nodes_length_sort_ind[toplist]][0]:
+                    if j == i:
+                        continue
+                    
+                    if j in tried_spots and i in tried_spots:
+                        continue
+                    
+                    #TODO replace by simpler step
+                    mat = 0
+                    case = "None"
+                    input_params["mat"] = mat
+                    input_params["Bmat"] = None
+                    for ino, imat in enumerate(material0_):
+                        if ino == 0:
+                            if class_predicted[i] < ind_mat[ino] and class_predicted[j] < ind_mat[ino] :
+                                tab_distance_classhkl_data = tab_distance_classhkl_data0[ino] 
+                                hkl_all_class = hkl_all_class0[ino] 
+                                material_ = imat
+                                B = B0[ino] 
+                                Gstar_metric = Gstar_metric0[ino] 
+                                case = imat
+                                mat = ino + 1
+                                if material0_count[ino] >= material0_limit[ino]:
+                                    mat = 0
+                                    case="None"
+                                input_params["mat"] = mat
+                                input_params["Bmat"] = B
+                        else:
+                            if (ind_mat[ino-1] <= class_predicted[i] < ind_mat[ino]) and \
+                                                (ind_mat[ino-1] <= class_predicted[j] < ind_mat[ino]):
+                                tab_distance_classhkl_data = tab_distance_classhkl_data0[ino]
+                                hkl_all_class = hkl_all_class0[ino] 
+                                material_ = imat
+                                B = B0[ino]
+                                Gstar_metric = Gstar_metric0[ino]
+                                case = imat  
+                                mat = ino + 1
+                                if material0_count[ino] >= material0_limit[ino]:
+                                    mat = 0
+                                    case="None"
+                                input_params["mat"] = mat
+                                input_params["Bmat"] = B
+                    
+                    if mat == 0:
+                        continue   
+                    
+                    tth_chi_spot1 = np.array([s_tth[i], s_chi[i]])
+                    tth_chi_spot2 = np.array([s_tth[j], s_chi[j]])         
+        
+                    hkl1 = hkl_all_class[str(predicted_hkl[i])]
+                    hkl1_list = np.array(hkl1)
+                    hkl2 = hkl_all_class[str(predicted_hkl[j])]
+                    hkl2_list = np.array(hkl2)
+                    
+                    actual_mat, flagAM, \
+                    spot1_hkl, spot2_hkl = propose_UB_matrixMM(hkl1_list, hkl2_list, 
+                                                            Gstar_metric, input_params, 
+                                                            dist[i,j],
+                                                            tth_chi_spot1, tth_chi_spot2, 
+                                                            B, method=0)
+
+                    if flagAM:
+                        continue
+                    
+                    for iind in range(len(actual_mat)):
+                        rot_mat123 = actual_mat[iind]
+                        rmv_ind, theospots = remove_spotsMM(s_tth, s_chi, rot_mat123, 
+                                                            material_, input_params, 
+                                                            dict_dp['detectorparameters'], dict_dp)
+                        match_rate = np.round(100 * len(rmv_ind)/theospots, 3)                        
+                        match_rate_mma.append(match_rate)
+
+                        if match_rate > init_mr:
+                            final_rmv_ind = rmv_ind                    
+                            init_mat = np.copy(mat)
+                            input_params["mat"] = init_mat
+                            init_material = np.copy(material_)
+                            init_case = np.copy(case)
+                            init_B = np.copy(B)  
+                            input_params["Bmat"] = init_B                                     
+                            final_match_rate = np.copy(match_rate)
+                            init_mr = np.copy(match_rate)                   
+                            all_stats = [i, j, \
+                                         spot1_hkl[iind], spot2_hkl[iind], \
+                                        tth_chi_spot1, tth_chi_spot2, \
+                                        dist[i,j], tab_distance_classhkl_data[i,j], np.round(max_pred[i]*100,3), \
+                                        np.round(max_pred[j]*100,3), len(rmv_ind), theospots,\
+                                        match_rate, 0.0, rot_mat123, init_mat, init_material, init_B, init_case]
+                    tried_spots.append(i)                 
+                    
+                if (final_match_rate <= cap_matchrate123): ## Nothing found!! 
+                    ## Either peaks are not well defined or not found within tolerance and prediction accuracy
+                    all_stats = [0, 0, 0, 0, 0, 0, 0, 0, 0, \
+                                        0, 0, 0, 0, 0, np.zeros((3,3))]
+                    max_mr, min_mr = 0, 0
+                    spot_ind = []
+                    mat = 0
+                    input_params["mat"] = 0
+                    case = "None"
+                    objective_function.append([0, [], []])
+                else:
+                    objective_function.append([final_match_rate, final_rmv_ind, all_stats])     
+                tried_spots.append(j)
+ 
+    sort_ind = []
+    for ijk in objective_function:
+        sort_ind.append(ijk[0])
+    sort_ind = np.array(sort_ind)
+    sort_ind = np.argsort(sort_ind)[::-1]
+    
+    for gr_count123 in range(len(sort_ind)):           
+        max_mr = objective_function[sort_ind[gr_count123]][0]
+        rmv_ind = objective_function[sort_ind[gr_count123]][1]
+        all_stats = objective_function[sort_ind[gr_count123]][2]
+        
+        if len(rmv_ind) == 0 or max_mr==0:
+            continue
+        
+        mat = all_stats[15]
+        if material_phase_always_present != None:
+            mat1 = 0
+            for igr, iii in enumerate(material_phase_always_present):
+                if igrain==igr and iii == mat:
+                    mat1 = np.copy(mat)
+        else:
+            mat1 = np.copy(mat)
+            
+        if mat1 == 0:
+            continue                    
+        
+        if material0_count[int(mat)-1] >= material0_limit[int(mat)-1]:
+            mat = 0
+            continue            
+
+        current_spots = [len(list(set(rmv_ind) & set(spots1_global[igr])))> coeff_overlap*len(spots1_global[igr]) for igr in range(len(spots1_global))]
+        
+        if np.any(current_spots):
+            continue
+
+        input_params["mat"] = all_stats[15]
+        if strain_calculation:
+            dev_strain, strain_sample, iR, fR, rot_mat_UB = calculate_strains_fromUBMM(s_tth, s_chi, all_stats[14], str(all_stats[16]), 
+                                                                 input_params, dict_dp['detectorparameters'], 
+                                                                 dict_dp, spots, all_stats[17],
+                                                                 strain_free_parameters)
+        else:
+            dev_strain, strain_sample, iR, fR = np.zeros((3,3)), np.zeros((3,3)), 0, 0
+            rot_mat_UB = np.copy(all_stats[14])
+        all_stats[14] = rot_mat_UB     
+        
+        return all_stats, np.max(max_mr), np.min(max_mr), \
+                rmv_ind, str(all_stats[18]), all_stats[15], dev_strain, strain_sample, iR, fR, objective_function
+    
+    all_stats = [0, 0, 0, 0, 0, 0, 0, 0, 0, \
+                        0, 0, 0, 0, 0, np.zeros((3,3))]
+    max_mr, min_mr = 0, 0
+    spot_ind = []
+    mat = 0
+    input_params["mat"] = 0
+    case = "None"
+    return all_stats, max_mr, min_mr, spot_ind, case, mat, np.zeros((3,3)), np.zeros((3,3)), 0, 0, objective_function
 
 def get_orient_matMM(s_tth, s_chi, material0_, classhkl, class_predicted, predicted_hkl,
                    input_params, hkl_all_class0, max_pred, dict_dp, spots, 
@@ -12087,6 +13413,7 @@ def get_orient_matMM(s_tth, s_chi, material0_, classhkl, class_predicted, predic
             case = "None"
             input_params["mat"] = mat
             input_params["Bmat"] = None
+            mat1 = 0
             for ino, imat in enumerate(material0_):
                 if ino == 0:
                     if class_predicted[i] < ind_mat[ino] and class_predicted[j] < ind_mat[ino] :
@@ -12117,8 +13444,16 @@ def get_orient_matMM(s_tth, s_chi, material0_, classhkl, class_predicted, predic
                             case="None"
                         input_params["mat"] = mat
                         input_params["Bmat"] = B
+                        
+                if material_phase_always_present != None:
+                    mat1 = 0
+                    for igr, iii in enumerate(material_phase_always_present):
+                        if igrain==igr and iii == mat:
+                            mat1 = np.copy(mat)
+                else:
+                    mat1 = np.copy(mat)
             
-            if mat == 0:
+            if mat1 == 0:
                 continue
             
             tth_chi_spot1 = np.array([s_tth[i], s_chi[i]])
@@ -12315,7 +13650,6 @@ def propose_UB_matrixMM(hkl1_list, hkl2_list, Gstar_metric, input_params, dist12
             spot1_hkl.append(hkls[ii][0])
             spot2_hkl.append(hkls[ii][1])
     
-    #TODO
     ## just fixing a* to x seems ok; if not think of aligning b* to xy plane
     sum_sign = []
     for nkl in range(len(actual_mat)):
@@ -12342,12 +13676,19 @@ def propose_UB_matrixMM(hkl1_list, hkl2_list, Gstar_metric, input_params, dist12
 
 
 def remove_spotsMM(s_tth, s_chi, first_match123, material_, input_params, detectorparameters, dict_dp):
+    ## get proximity for exp and theo spots
+    if input_params["mat"] == 0:
+        return [], 100
+    
     try:
         grain = CP.Prepare_Grain(material_, first_match123, dictmaterials=dictLT.dict_Materials)
         ### initialize global variables to be used later
         call_global()
     except:
         return [], 100
+    
+    # print(grain)
+    
     #### Perhaps better than SimulateResult function
     kf_direction = dict_dp["kf_direction"]
     detectordistance = dict_dp["detectorparameters"][0]
@@ -12363,7 +13704,8 @@ def remove_spotsMM(s_tth, s_chi, first_match123, material_, input_params, detect
                                     kf_direction=kf_direction,
                                     ResolutionAngstrom=False,
                                     dictmaterials=dictLT.dict_Materials)
-
+    
+    # print(spots2pi)
     TwicethetaChi = LT.filterLaueSpots_full_np(spots2pi[0][0], None, onlyXYZ=False,
                                                     HarmonicsRemoval=0,
                                                     fastcompute=1,
@@ -12372,9 +13714,7 @@ def remove_spotsMM(s_tth, s_chi, first_match123, material_, input_params, detect
                                                     detectordiameter=detectordiameter,
                                                     pixelsize=pixelsize,
                                                     dim=dim)
-    ## get proximity for exp and theo spots
-    if input_params["mat"] == 0:
-        return [], 100
+    # print(TwicethetaChi)
     angtol = input_params["tolerance"][input_params["mat"] -1]
     
     if option_global =="v1":
@@ -12392,10 +13732,12 @@ def remove_spotsMM(s_tth, s_chi, first_match123, material_, input_params, detect
                                                   angtol=angtol)
         List_Exp_spot_close, ind_uniq = np.unique(List_Exp_spot_close, return_index=True)
         residues_link = np.take(residues_link, ind_uniq)
-
+        
+    # print(np.average(residues_link))
     if np.average(residues_link) > residues_threshold:
         return [], 100
     
+    # print(len(np.unique(List_Exp_spot_close)))
     if len(np.unique(List_Exp_spot_close)) < nb_spots_global_threshold:
         return [], 100
     
@@ -12405,7 +13747,6 @@ def remove_spotsMM(s_tth, s_chi, first_match123, material_, input_params, detect
 def calculate_strains_fromUBMM(s_tth, s_chi, UBmat, material_, input_params, 
                              detectorparameters, dict_dp, spots, B_matrix, strain_free_parameters):
     ## for the moment strain_free_parameters is a trial implementation 
-    #TODO to be verified    
     if ("a" not in strain_free_parameters) and len(strain_free_parameters)>=5:
         if additional_expression[0] != "none":
             print("Note: additional_expression is not applied for the current set of strain free parameters")
@@ -12424,16 +13765,16 @@ def calculate_strains_fromUBMM(s_tth, s_chi, UBmat, material_, input_params,
             grain = CP.Prepare_Grain(material_, UBmat, dictmaterials=dictLT.dict_Materials)
 
             Twicetheta, Chi, Miller_ind, posx, posy, _ = LT.SimulateLaue(grain,
-                                                                     input_params["emin"], 
-                                                                     input_params["emax"], 
-                                                                     detectorparameters,
-                                                                     kf_direction=dict_dp['kf_direction'],
-                                                                     removeharmonics=1,
-                                                                     pixelsize=dict_dp['pixelsize'],
-                                                                     dim=dict_dp['dim'],
-                                                                     ResolutionAngstrom=False,
-                                                                     detectordiameter=dict_dp['detectordiameter'],
-                                                                     dictmaterials=dictLT.dict_Materials)
+                                                                         input_params["emin"], 
+                                                                         input_params["emax"], 
+                                                                         detectorparameters,
+                                                                         kf_direction=dict_dp['kf_direction'],
+                                                                         removeharmonics=1,
+                                                                         pixelsize=dict_dp['pixelsize'],
+                                                                         dim=dict_dp['dim'],
+                                                                         ResolutionAngstrom=False,
+                                                                         detectordiameter=dict_dp['detectordiameter'],
+                                                                         dictmaterials=dictLT.dict_Materials)
             ## get proximity for exp and theo spots
             linkedspots_link, linkExpMiller_link, \
                 linkResidues_link = getProximityv0(np.array([Twicetheta, Chi]),  # warning array(2theta, chi)
@@ -12714,3 +14055,1110 @@ def calculate_strains_fromUBMM(s_tth, s_chi, UBmat, material_, input_params,
             devstrain = np.round(devstrain * 100, decimals=3)
             deviatoricstrain_sampleframe = np.round(deviatoricstrain_sampleframe * 100, decimals=3)
     return devstrain, deviatoricstrain_sampleframe, init_residues, final_residues, UBmat
+
+
+      
+def global_plots_MM(lim_x, lim_y, rotation_matrix1, strain_matrix, strain_matrixs, col, colx, coly,
+                 match_rate, mat_global, spots_len, iR_pix, fR_pix,
+                 model_direc, material_, match_rate_threshold=5, bins=30, constantlength="a"):
+    call_global()
+
+    mu_sd = []
+    mu_sdc = []
+    material_id = material_
+    for matid in range(len(material_)):
+        for index in range(len(spots_len)):
+            ### index for nans
+            nan_index1 = np.where(match_rate[index][0] <= match_rate_threshold)[0]
+            mat_id_index = np.where(mat_global[index][0] != matid+1)[0]
+            nan_index = np.hstack((mat_id_index,nan_index1))
+            nan_index = np.unique(nan_index)
+            
+            if index == 0:
+                spots_len_plot = np.copy(spots_len[index][0])
+                mr_plot = np.copy(match_rate[index][0])
+                iR_pix_plot = np.copy(iR_pix[index][0])
+                fR_pix_plot = np.copy(fR_pix[index][0])
+                strain_matrix_plot = np.copy(strain_matrix[index][0])
+                e11c = strain_matrix_plot[:,0,0]#.reshape((lim_x, lim_y))
+                e22c = strain_matrix_plot[:,1,1]#.reshape((lim_x, lim_y))
+                e33c = strain_matrix_plot[:,2,2]#.reshape((lim_x, lim_y))
+                e12c = strain_matrix_plot[:,0,1]#.reshape((lim_x, lim_y))
+                e13c = strain_matrix_plot[:,0,2]#.reshape((lim_x, lim_y))
+                e23c = strain_matrix_plot[:,1,2]#.reshape((lim_x, lim_y))
+                strain_matrixs_plot = np.copy(strain_matrixs[index][0])
+                e11s = strain_matrixs_plot[:,0,0]#.reshape((lim_x, lim_y))
+                e22s = strain_matrixs_plot[:,1,1]#.reshape((lim_x, lim_y))
+                e33s = strain_matrixs_plot[:,2,2]#.reshape((lim_x, lim_y))
+                e12s = strain_matrixs_plot[:,0,1]#.reshape((lim_x, lim_y))
+                e13s = strain_matrixs_plot[:,0,2]#.reshape((lim_x, lim_y))
+                e23s = strain_matrixs_plot[:,1,2]#.reshape((lim_x, lim_y))
+                spots_len_plot[nan_index] = np.nan 
+                mr_plot[nan_index] = np.nan 
+                iR_pix_plot[nan_index] = np.nan 
+                fR_pix_plot[nan_index] = np.nan 
+                e11c[nan_index] = np.nan 
+                e22c[nan_index] = np.nan 
+                e33c[nan_index] = np.nan 
+                e12c[nan_index] = np.nan 
+                e13c[nan_index] = np.nan 
+                e23c[nan_index] = np.nan 
+                e11s[nan_index] = np.nan 
+                e22s[nan_index] = np.nan 
+                e33s[nan_index] = np.nan 
+                e12s[nan_index] = np.nan 
+                e13s[nan_index] = np.nan 
+                e23s[nan_index] = np.nan 
+                
+            else:
+                temp = np.copy(spots_len[index][0])
+                temp[nan_index] = np.nan
+                spots_len_plot = np.vstack((spots_len_plot,temp))
+                
+                temp = np.copy(match_rate[index][0])
+                temp[nan_index] = np.nan
+                mr_plot = np.vstack((mr_plot,temp))
+                
+                temp = np.copy(iR_pix[index][0])
+                temp[nan_index] = np.nan
+                iR_pix_plot = np.vstack((iR_pix_plot,temp))
+        
+                temp = np.copy(fR_pix[index][0])
+                temp[nan_index] = np.nan
+                fR_pix_plot = np.vstack((fR_pix_plot,temp))
+                
+                strain_matrix_plot = np.copy(strain_matrix[index][0])
+                temp = np.copy(strain_matrix_plot[:,0,0])
+                temp[nan_index] = np.nan
+                e11c = np.vstack((e11c,temp))
+                temp = np.copy(strain_matrix_plot[:,1,1])
+                temp[nan_index] = np.nan
+                e22c = np.vstack((e22c,temp))
+                temp = np.copy(strain_matrix_plot[:,2,2])
+                temp[nan_index] = np.nan
+                e33c = np.vstack((e33c,temp))
+                temp = np.copy(strain_matrix_plot[:,0,1])
+                temp[nan_index] = np.nan
+                e12c = np.vstack((e12c,temp))
+                temp = np.copy(strain_matrix_plot[:,0,2])
+                temp[nan_index] = np.nan
+                e13c = np.vstack((e13c,temp))
+                temp = np.copy(strain_matrix_plot[:,1,2])
+                temp[nan_index] = np.nan
+                e23c = np.vstack((e23c,temp))
+                ##
+                strain_matrixs_plot = np.copy(strain_matrixs[index][0])
+                temp = np.copy(strain_matrixs_plot[:,0,0])
+                temp[nan_index] = np.nan
+                e11s = np.vstack((e11s,temp))
+                temp = np.copy(strain_matrixs_plot[:,1,1])
+                temp[nan_index] = np.nan
+                e22s = np.vstack((e22s,temp))
+                temp = np.copy(strain_matrixs_plot[:,2,2])
+                temp[nan_index] = np.nan
+                e33s = np.vstack((e33s,temp))
+                temp = np.copy(strain_matrixs_plot[:,0,1])
+                temp[nan_index] = np.nan
+                e12s = np.vstack((e12s,temp))
+                temp = np.copy(strain_matrixs_plot[:,0,2])
+                temp[nan_index] = np.nan
+                e13s = np.vstack((e13s,temp))
+                temp = np.copy(strain_matrixs_plot[:,1,2])
+                temp[nan_index] = np.nan
+                e23s = np.vstack((e23s,temp))
+        
+        spots_len_plot = spots_len_plot.flatten()
+        mr_plot = mr_plot.flatten()
+        iR_pix_plot = iR_pix_plot.flatten()
+        fR_pix_plot = fR_pix_plot.flatten() 
+        e11c = e11c.flatten()
+        e22c = e22c.flatten()
+        e33c = e33c.flatten()
+        e12c = e12c.flatten()
+        e13c = e13c.flatten()
+        e23c = e23c.flatten()
+        e11s = e11s.flatten()
+        e22s = e22s.flatten()
+        e33s = e33s.flatten()
+        e12s = e12s.flatten()
+        e13s = e13s.flatten()
+        e23s = e23s.flatten()
+        
+        spots_len_plot = spots_len_plot[~np.isnan(spots_len_plot)]
+        mr_plot = mr_plot[~np.isnan(mr_plot)]
+        iR_pix_plot = iR_pix_plot[~np.isnan(iR_pix_plot)]
+        fR_pix_plot = fR_pix_plot[~np.isnan(fR_pix_plot)]
+        e11c = e11c[~np.isnan(e11c)]
+        e22c = e22c[~np.isnan(e22c)]
+        e33c = e33c[~np.isnan(e33c)]
+        e12c = e12c[~np.isnan(e12c)]
+        e13c = e13c[~np.isnan(e13c)]
+        e23c = e23c[~np.isnan(e23c)]
+        e11s = e11s[~np.isnan(e11s)]
+        e22s = e22s[~np.isnan(e22s)]
+        e33s = e33s[~np.isnan(e33s)]
+        e12s = e12s[~np.isnan(e12s)]
+        e13s = e13s[~np.isnan(e13s)]
+        e23s = e23s[~np.isnan(e23s)]
+        
+        try:
+            title = "Number of spots and matching rate"
+            fig = plt.figure()
+            axs = fig.subplots(1, 2)
+            axs[0].set_title("Number of spots", loc='center', fontsize=8)
+            axs[0].hist(spots_len_plot, bins=bins)
+            axs[0].set_ylabel('Frequency', fontsize=8)
+            axs[0].tick_params(axis='both', which='major', labelsize=8)
+            axs[0].tick_params(axis='both', which='minor', labelsize=8)
+            axs[1].set_title("matching rate", loc='center', fontsize=8)
+            axs[1].hist(mr_plot, bins=bins)
+            axs[1].set_ylabel('Frequency', fontsize=8)
+            axs[1].tick_params(axis='both', which='major', labelsize=8)
+            axs[1].tick_params(axis='both', which='minor', labelsize=8)
+            plt.tight_layout()
+            plt.savefig(model_direc+ "//"+title+"_"+material_id[matid]+'.png', format='png', dpi=1000) 
+            plt.close(fig)
+        except:
+            pass
+        
+        try:
+            title = "Initial and Final residues"
+            fig = plt.figure()
+            axs = fig.subplots(1, 2)
+            axs[0].set_title("Initial residues", loc='center', fontsize=8)
+            axs[0].hist(iR_pix_plot, bins=bins)
+            axs[0].set_ylabel('Frequency', fontsize=8)
+            axs[0].tick_params(axis='both', which='major', labelsize=8)
+            axs[0].tick_params(axis='both', which='minor', labelsize=8)
+            axs[1].set_title("Final residues", loc='center', fontsize=8)
+            axs[1].hist(fR_pix_plot, bins=bins)
+            axs[1].set_ylabel('Frequency', fontsize=8)
+            axs[1].tick_params(axis='both', which='major', labelsize=8)
+            axs[1].tick_params(axis='both', which='minor', labelsize=8)
+            plt.tight_layout()
+            plt.savefig(model_direc+ "//"+title+"_"+material_id[matid]+'.png',format='png', dpi=1000) 
+            plt.close(fig)
+        except:
+            pass            
+        
+        try:
+            title = "strain Crystal reference"+" "+material_id[matid]
+            fig = plt.figure()
+            fig.suptitle(title, fontsize=10)
+            axs = fig.subplots(2, 3)
+            axs[0, 0].set_title(r"$\epsilon_{11}$ (%)", loc='center', fontsize=8)
+            logdata = e11c #np.log(e11c)
+            xmin = logdata.min()
+            xmax = logdata.max()
+            x1 = np.linspace(xmin, xmax, 1000)
+            estimated_mu, estimated_sigma = scipy.stats.norm.fit(logdata)
+            pdf = scipy.stats.norm.pdf(x1, loc=estimated_mu, scale=estimated_sigma)
+            axs[0, 0].axvline(x=estimated_mu, c="k")
+            axs[0, 0].plot(x1, pdf, 'r')
+            axs[0, 0].hist(logdata, bins=bins, density=True, alpha=0.8)
+            mu_sdc.append((estimated_mu-estimated_sigma, estimated_mu+estimated_sigma))
+            axs[0, 0].set_ylabel('Frequency', fontsize=8)
+            axs[0, 0].tick_params(axis='both', which='major', labelsize=8)
+            axs[0, 0].tick_params(axis='both', which='minor', labelsize=8)
+            
+            axs[0, 1].set_title(r"$\epsilon_{22}$ (%)", loc='center', fontsize=8)
+            logdata = e22c #np.log(e22c)
+            xmin = logdata.min()
+            xmax = logdata.max()
+            x1 = np.linspace(xmin, xmax, 1000)
+            estimated_mu, estimated_sigma = scipy.stats.norm.fit(logdata)
+            pdf = scipy.stats.norm.pdf(x1, loc=estimated_mu, scale=estimated_sigma)
+            axs[0, 1].axvline(x=estimated_mu, c="k")
+            axs[0, 1].plot(x1, pdf, 'r')
+            axs[0, 1].hist(logdata, bins=bins, density=True, alpha=0.8)
+            mu_sdc.append((estimated_mu-estimated_sigma, estimated_mu+estimated_sigma))
+            # axs[0, 1].hist(e22c, bins=bins)
+            axs[0, 1].set_ylabel('Frequency', fontsize=8)
+            axs[0, 1].tick_params(axis='both', which='major', labelsize=8)
+            axs[0, 1].tick_params(axis='both', which='minor', labelsize=8)
+            
+            axs[0, 2].set_title(r"$\epsilon_{33}$ (%)", loc='center', fontsize=8)
+            logdata = e33c #np.log(e33c)
+            xmin = logdata.min()
+            xmax = logdata.max()
+            x1 = np.linspace(xmin, xmax, 1000)
+            estimated_mu, estimated_sigma = scipy.stats.norm.fit(logdata)
+            pdf = scipy.stats.norm.pdf(x1, loc=estimated_mu, scale=estimated_sigma)
+            axs[0, 2].axvline(x=estimated_mu, c="k")
+            axs[0, 2].plot(x1, pdf, 'r')
+            axs[0, 2].hist(logdata, bins=bins, density=True, alpha=0.8)
+            mu_sdc.append((estimated_mu-estimated_sigma, estimated_mu+estimated_sigma))
+            # axs[0, 2].hist(e33c, bins=bins)
+            axs[0, 2].set_ylabel('Frequency', fontsize=8)
+            axs[0, 2].tick_params(axis='both', which='major', labelsize=8)
+            axs[0, 2].tick_params(axis='both', which='minor', labelsize=8)
+            
+            axs[1, 0].set_title(r"$\epsilon_{12}$ (%)", loc='center', fontsize=8)
+            logdata = e12c#np.log(e12c)
+            xmin = logdata.min()
+            xmax = logdata.max()
+            x1 = np.linspace(xmin, xmax, 1000)
+            estimated_mu, estimated_sigma = scipy.stats.norm.fit(logdata)
+            pdf = scipy.stats.norm.pdf(x1, loc=estimated_mu, scale=estimated_sigma)
+            axs[1, 0].axvline(x=estimated_mu, c="k")
+            axs[1, 0].plot(x1, pdf, 'r')
+            axs[1, 0].hist(logdata, bins=bins, density=True, alpha=0.8)
+            mu_sdc.append((estimated_mu-estimated_sigma, estimated_mu+estimated_sigma))
+            # axs[1, 0].hist(e12c, bins=bins)
+            axs[1, 0].set_ylabel('Frequency', fontsize=8)
+            axs[1, 0].tick_params(axis='both', which='major', labelsize=8)
+            axs[1, 0].tick_params(axis='both', which='minor', labelsize=8)
+            
+            axs[1, 1].set_title(r"$\epsilon_{13}$ (%)", loc='center', fontsize=8)
+            logdata = e13c#np.log(e13c)
+            xmin = logdata.min()
+            xmax = logdata.max()
+            x1 = np.linspace(xmin, xmax, 1000)
+            estimated_mu, estimated_sigma = scipy.stats.norm.fit(logdata)
+            pdf = scipy.stats.norm.pdf(x1, loc=estimated_mu, scale=estimated_sigma)
+            axs[1, 1].axvline(x=estimated_mu, c="k")
+            axs[1, 1].plot(x1, pdf, 'r')
+            axs[1, 1].hist(logdata, bins=bins, density=True, alpha=0.8)
+            mu_sdc.append((estimated_mu-estimated_sigma, estimated_mu+estimated_sigma))
+            # axs[1, 1].hist(e13c, bins=bins)
+            axs[1, 1].set_ylabel('Frequency', fontsize=8)
+            axs[1, 1].tick_params(axis='both', which='major', labelsize=8)
+            axs[1, 1].tick_params(axis='both', which='minor', labelsize=8)
+            
+            axs[1, 2].set_title(r"$\epsilon_{23}$ (%)", loc='center', fontsize=8)
+            logdata = e23c#np.log(e23c)
+            xmin = logdata.min()
+            xmax = logdata.max()
+            x1 = np.linspace(xmin, xmax, 1000)
+            estimated_mu, estimated_sigma = scipy.stats.norm.fit(logdata)
+            pdf = scipy.stats.norm.pdf(x1, loc=estimated_mu, scale=estimated_sigma)
+            axs[1, 2].axvline(x=estimated_mu, c="k")
+            axs[1, 2].plot(x1, pdf, 'r')
+            axs[1, 2].hist(logdata, bins=bins, density=True, alpha=0.8)
+            # axs[1, 2].hist(e23c, bins=bins)
+            axs[1, 2].set_ylabel('Frequency', fontsize=8)
+            axs[1, 2].tick_params(axis='both', which='major', labelsize=8)
+            axs[1, 2].tick_params(axis='both', which='minor', labelsize=8)
+            mu_sdc.append((estimated_mu-estimated_sigma, estimated_mu+estimated_sigma))
+            plt.tight_layout()
+            plt.savefig(model_direc+ "//"+title+'.png', format='png', dpi=1000) 
+            plt.close(fig)
+        except:
+            pass
+    
+        try:
+            title = "strain Sample reference"+" "+material_id[matid]
+            fig = plt.figure()
+            fig.suptitle(title, fontsize=10)
+            axs = fig.subplots(2, 3)
+            axs[0, 0].set_title(r"$\epsilon_{11}$ (%)", loc='center', fontsize=8)
+            logdata = e11s #np.log(e11c)
+            xmin = logdata.min()
+            xmax = logdata.max()
+            x1 = np.linspace(xmin, xmax, 1000)
+            estimated_mu, estimated_sigma = scipy.stats.norm.fit(logdata)
+            pdf = scipy.stats.norm.pdf(x1, loc=estimated_mu, scale=estimated_sigma)
+            axs[0, 0].axvline(x=estimated_mu, c="k")
+            axs[0, 0].plot(x1, pdf, 'r')
+            axs[0, 0].hist(logdata, bins=bins, density=True, alpha=0.8)
+            # axs[0, 0].hist(e11s, bins=bins)
+            axs[0, 0].set_ylabel('Frequency', fontsize=8)
+            axs[0, 0].tick_params(axis='both', which='major', labelsize=8)
+            axs[0, 0].tick_params(axis='both', which='minor', labelsize=8)
+            
+            mu_sd.append((estimated_mu-estimated_sigma, estimated_mu+estimated_sigma))
+            
+            axs[0, 1].set_title(r"$\epsilon_{22}$ (%)", loc='center', fontsize=8)
+            logdata = e22s #np.log(e22c)
+            xmin = logdata.min()
+            xmax = logdata.max()
+            x1 = np.linspace(xmin, xmax, 1000)
+            estimated_mu, estimated_sigma = scipy.stats.norm.fit(logdata)
+            pdf = scipy.stats.norm.pdf(x1, loc=estimated_mu, scale=estimated_sigma)
+            axs[0, 1].axvline(x=estimated_mu, c="k")
+            axs[0, 1].plot(x1, pdf, 'r')
+            axs[0, 1].hist(logdata, bins=bins, density=True, alpha=0.8)
+            # axs[0, 1].hist(e22s, bins=bins)
+            axs[0, 1].set_ylabel('Frequency', fontsize=8)
+            axs[0, 1].tick_params(axis='both', which='major', labelsize=8)
+            axs[0, 1].tick_params(axis='both', which='minor', labelsize=8)
+            
+            mu_sd.append((estimated_mu-estimated_sigma, estimated_mu+estimated_sigma))
+            
+            axs[0, 2].set_title(r"$\epsilon_{33}$ (%)", loc='center', fontsize=8)
+            logdata = e33s #np.log(e33c)
+            xmin = logdata.min()
+            xmax = logdata.max()
+            x1 = np.linspace(xmin, xmax, 1000)
+            estimated_mu, estimated_sigma = scipy.stats.norm.fit(logdata)
+            pdf = scipy.stats.norm.pdf(x1, loc=estimated_mu, scale=estimated_sigma)
+            axs[0, 2].axvline(x=estimated_mu, c="k")
+            axs[0, 2].plot(x1, pdf, 'r')
+            axs[0, 2].hist(logdata, bins=bins, density=True, alpha=0.8)
+            # axs[0, 2].hist(e33s, bins=bins)
+            axs[0, 2].set_ylabel('Frequency', fontsize=8)
+            axs[0, 2].tick_params(axis='both', which='major', labelsize=8)
+            axs[0, 2].tick_params(axis='both', which='minor', labelsize=8)
+            
+            mu_sd.append((estimated_mu-estimated_sigma, estimated_mu+estimated_sigma))
+            
+            axs[1, 0].set_title(r"$\epsilon_{12}$ (%)", loc='center', fontsize=8)
+            logdata = e12s#np.log(e12c)
+            xmin = logdata.min()
+            xmax = logdata.max()
+            x1 = np.linspace(xmin, xmax, 1000)
+            estimated_mu, estimated_sigma = scipy.stats.norm.fit(logdata)
+            pdf = scipy.stats.norm.pdf(x1, loc=estimated_mu, scale=estimated_sigma)
+            axs[1, 0].axvline(x=estimated_mu, c="k")
+            axs[1, 0].plot(x1, pdf, 'r')
+            axs[1, 0].hist(logdata, bins=bins, density=True, alpha=0.8)
+            # axs[1, 0].hist(e12s, bins=bins)
+            axs[1, 0].set_ylabel('Frequency', fontsize=8)
+            axs[1, 0].tick_params(axis='both', which='major', labelsize=8)
+            axs[1, 0].tick_params(axis='both', which='minor', labelsize=8)
+            
+            mu_sd.append((estimated_mu-estimated_sigma, estimated_mu+estimated_sigma))
+            
+            axs[1, 1].set_title(r"$\epsilon_{13}$ (%)", loc='center', fontsize=8)
+            logdata = e13s#np.log(e13c)
+            xmin = logdata.min()
+            xmax = logdata.max()
+            x1 = np.linspace(xmin, xmax, 1000)
+            estimated_mu, estimated_sigma = scipy.stats.norm.fit(logdata)
+            pdf = scipy.stats.norm.pdf(x1, loc=estimated_mu, scale=estimated_sigma)
+            axs[1, 1].axvline(x=estimated_mu, c="k")
+            axs[1, 1].plot(x1, pdf, 'r')
+            axs[1, 1].hist(logdata, bins=bins, density=True, alpha=0.8)
+            # axs[1, 1].hist(e13s, bins=bins)
+            axs[1, 1].set_ylabel('Frequency', fontsize=8)
+            axs[1, 1].tick_params(axis='both', which='major', labelsize=8)
+            axs[1, 1].tick_params(axis='both', which='minor', labelsize=8)
+            
+            mu_sd.append((estimated_mu-estimated_sigma, estimated_mu+estimated_sigma))
+            
+            axs[1, 2].set_title(r"$\epsilon_{23}$ (%)", loc='center', fontsize=8)
+            logdata = e23s#np.log(e23c)
+            xmin = logdata.min()
+            xmax = logdata.max()
+            x1 = np.linspace(xmin, xmax, 1000)
+            estimated_mu, estimated_sigma = scipy.stats.norm.fit(logdata)
+            pdf = scipy.stats.norm.pdf(x1, loc=estimated_mu, scale=estimated_sigma)
+            axs[1, 2].axvline(x=estimated_mu, c="k")
+            axs[1, 2].plot(x1, pdf, 'r')
+            axs[1, 2].hist(logdata, bins=bins, density=True, alpha=0.8)
+            # axs[1, 2].hist(e23s, bins=bins)
+            axs[1, 2].set_ylabel('Frequency', fontsize=8)
+            axs[1, 2].tick_params(axis='both', which='major', labelsize=8)
+            axs[1, 2].tick_params(axis='both', which='minor', labelsize=8)
+            
+            mu_sd.append((estimated_mu-estimated_sigma, estimated_mu+estimated_sigma))
+            
+            plt.tight_layout()
+            plt.savefig(model_direc+ "//"+title+'.png', format='png', dpi=1000) 
+            plt.close(fig)  
+        except:
+            pass
+
+    for matid in range(len(material_)):
+        for index in range(len(strain_matrix)):
+            nan_index1 = np.where(match_rate[index][0] <= match_rate_threshold)[0]
+            mat_id_index = np.where(mat_global[index][0] != matid+1)[0]
+            nan_index = np.hstack((mat_id_index,nan_index1))
+            nan_index = np.unique(nan_index)
+        
+            strain_matrix_plot = np.copy(strain_matrixs[index][0])
+            strain_matrix_plot[nan_index,:,:] = np.nan             
+        
+            fig = plt.figure(figsize=(11.69,8.27), dpi=100)
+            bottom, top = 0.1, 0.9
+            left, right = 0.1, 0.8
+            fig.subplots_adjust(top=top, bottom=bottom, left=left, right=right, hspace=0.15, wspace=0.25)
+            
+            try:
+                vmin, vmax = mu_sd[matid*6]
+                axs = fig.subplots(2, 3)
+                axs[0, 0].set_title(r"$\epsilon_{11}$ (%)", loc='center', fontsize=8)
+                im=axs[0, 0].imshow(strain_matrix_plot[:,0,0].reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                axs[0, 0].set_xticks([])
+                axs[0, 0].set_yticks([])
+                divider = make_axes_locatable(axs[0,0])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+                
+                vmin, vmax = mu_sd[matid*6+1]
+                axs[0, 1].set_title(r"$\epsilon_{22}$ (%)", loc='center', fontsize=8)
+                im=axs[0, 1].imshow(strain_matrix_plot[:,1,1].reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                divider = make_axes_locatable(axs[0,1])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+                
+                vmin, vmax = mu_sd[matid*6+2]
+                axs[0, 2].set_title(r"$\epsilon_{33}$ (%)", loc='center', fontsize=8)
+                im=axs[0, 2].imshow(strain_matrix_plot[:,2,2].reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                divider = make_axes_locatable(axs[0,2])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+                
+                vmin, vmax = mu_sd[matid*6+3]
+                axs[1, 0].set_title(r"$\epsilon_{12}$ (%)", loc='center', fontsize=8)
+                im=axs[1, 0].imshow(strain_matrix_plot[:,0,1].reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                axs[1, 0].set_xticks([])
+                axs[1, 0].set_yticks([])
+                divider = make_axes_locatable(axs[1,0])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+                
+                vmin, vmax = mu_sd[matid*6+4]
+                axs[1, 1].set_title(r"$\epsilon_{13}$ (%)", loc='center', fontsize=8)
+                im=axs[1, 1].imshow(strain_matrix_plot[:,0,2].reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                axs[1, 1].set_xticks([])
+                divider = make_axes_locatable(axs[1,1])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+                
+                vmin, vmax = mu_sd[matid*6+5]
+                axs[1, 2].set_title(r"$\epsilon_{23}$ (%)", loc='center', fontsize=8)
+                im = axs[1, 2].imshow(strain_matrix_plot[:,1,2].reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                axs[1, 2].set_xticks([]) 
+                divider = make_axes_locatable(axs[1,2])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+            
+                for ax in axs.flat:
+                    ax.label_outer()
+            
+                plt.savefig(model_direc+ '//figure_strain_UBsample_mat'+str(matid)+"_UB"+str(index)+'.png', bbox_inches='tight',format='png', dpi=1000) 
+                plt.close(fig)
+            except:
+                print("Error in strain plot")
+            
+                
+            strain_matrix_plot = np.copy(strain_matrix[index][0])
+            strain_matrix_plot[nan_index,:,:] = np.nan             
+            
+            try:
+                fig = plt.figure(figsize=(11.69,8.27), dpi=100)
+                bottom, top = 0.1, 0.9
+                left, right = 0.1, 0.8
+                fig.subplots_adjust(top=top, bottom=bottom, left=left, right=right, hspace=0.15, wspace=0.25)
+                
+                vmin, vmax = mu_sdc[matid*6]
+                axs = fig.subplots(2, 3)
+                axs[0, 0].set_title(r"$\epsilon_{11}$ (%)", loc='center', fontsize=8)
+                im=axs[0, 0].imshow(strain_matrix_plot[:,0,0].reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                axs[0, 0].set_xticks([])
+                axs[0, 0].set_yticks([])
+                divider = make_axes_locatable(axs[0,0])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+                
+                vmin, vmax = mu_sdc[matid*6+1]
+                axs[0, 1].set_title(r"$\epsilon_{22}$ (%)", loc='center', fontsize=8)
+                im=axs[0, 1].imshow(strain_matrix_plot[:,1,1].reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                divider = make_axes_locatable(axs[0,1])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+                
+                vmin, vmax = mu_sdc[matid*6+2]
+                axs[0, 2].set_title(r"$\epsilon_{33}$ (%)", loc='center', fontsize=8)
+                im=axs[0, 2].imshow(strain_matrix_plot[:,2,2].reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                divider = make_axes_locatable(axs[0,2])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+                
+                vmin, vmax = mu_sdc[matid*6+3]
+                axs[1, 0].set_title(r"$\epsilon_{12}$ (%)", loc='center', fontsize=8)
+                im=axs[1, 0].imshow(strain_matrix_plot[:,0,1].reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                axs[1, 0].set_xticks([])
+                axs[1, 0].set_yticks([])
+                divider = make_axes_locatable(axs[1,0])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+                
+                vmin, vmax = mu_sdc[matid*6+4]
+                axs[1, 1].set_title(r"$\epsilon_{13}$ (%)", loc='center', fontsize=8)
+                im=axs[1, 1].imshow(strain_matrix_plot[:,0,2].reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                axs[1, 1].set_xticks([])
+                divider = make_axes_locatable(axs[1,1])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+                
+                vmin, vmax = mu_sdc[matid*6+5]
+                axs[1, 2].set_title(r"$\epsilon_{23}$ (%)", loc='center', fontsize=8)
+                im = axs[1, 2].imshow(strain_matrix_plot[:,1,2].reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                axs[1, 2].set_xticks([]) 
+                divider = make_axes_locatable(axs[1,2])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+            
+                for ax in axs.flat:
+                    ax.label_outer()
+            
+                plt.savefig(model_direc+ '//figure_strain_UBcrystal_mat'+str(matid)+"_UB"+str(index)+'.png', bbox_inches='tight',format='png', dpi=1000) 
+                plt.close(fig)
+            except:
+                print("Error in strain plots")
+                
+            col_plot = np.copy(col[index][0])
+            col_plot[nan_index,:] = np.nan,np.nan,np.nan
+            col_plot = col_plot.reshape((lim_x, lim_y, 3))
+        
+            colx_plot = np.copy(colx[index][0])
+            colx_plot[nan_index,:] = np.nan,np.nan,np.nan
+            colx_plot = colx_plot.reshape((lim_x, lim_y,3))
+            
+            coly_plot = np.copy(coly[index][0])
+            coly_plot[nan_index,:] = np.nan,np.nan,np.nan
+            coly_plot = coly_plot.reshape((lim_x, lim_y,3))
+            
+            try:
+                fig = plt.figure(figsize=(11.69,8.27), dpi=100)
+                bottom, top = 0.1, 0.9
+                left, right = 0.1, 0.8
+                fig.subplots_adjust(top=top, bottom=bottom, left=left, right=right, hspace=0.15, wspace=0.25)
+                
+                axs = fig.subplots(1, 3)
+                axs[0].set_title(r"IPF Z map", loc='center', fontsize=8)
+                axs[0].imshow(col_plot, origin='lower')
+                axs[0].set_xticks([])
+                axs[0].set_yticks([])
+                
+                axs[1].set_title(r"IPF Y map", loc='center', fontsize=8)
+                axs[1].imshow(coly_plot, origin='lower')
+                axs[1].set_xticks([])
+                axs[1].set_yticks([])
+                
+                axs[2].set_title(r"IPF X map", loc='center', fontsize=8)
+                im = axs[2].imshow(colx_plot, origin='lower')
+                axs[2].set_xticks([])
+                axs[2].set_yticks([])
+            
+                for ax in axs.flat:
+                    ax.label_outer()
+            
+                plt.savefig(model_direc+ '//IPF_map_mat'+str(matid)+"_UB"+str(index)+'.png', bbox_inches='tight',format='png', dpi=1000) 
+                plt.close(fig)
+
+                col_plot = np.copy(col[index][0])
+                col_plot[nan_index,:] = np.nan,np.nan,np.nan
+                col_plot = col_plot.reshape((lim_x, lim_y, 3))
+            
+                mr_plot = np.copy(match_rate[index][0])
+                mr_plot[nan_index,:] = np.nan
+                mr_plot = mr_plot.reshape((lim_x, lim_y))
+                
+                mat_glob = np.copy(mat_global[index][0])
+                mat_glob[nan_index,:] = np.nan
+                mat_glob = mat_glob.reshape((lim_x, lim_y))
+                
+                fig = plt.figure(figsize=(11.69,8.27), dpi=100)
+                bottom, top = 0.1, 0.9
+                left, right = 0.1, 0.8
+                fig.subplots_adjust(top=top, bottom=bottom, left=left, right=right, hspace=0.15, wspace=0.25)
+            
+                axs = fig.subplots(1, 3)
+                axs[0].set_title(r"IPF Z map", loc='center', fontsize=8)
+                axs[0].imshow(col_plot, origin='lower')
+                axs[0].set_xticks([])
+                axs[0].set_yticks([])
+                
+                axs[1].set_title(r"Material Index", loc='center', fontsize=8)
+                im = axs[1].imshow(mat_glob, origin='lower', vmin=0, vmax=2)
+                axs[1].set_xticks([])
+                axs[1].set_yticks([])
+                
+                divider = make_axes_locatable(axs[1])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                fig.colorbar(im, cax=cax, orientation='vertical')
+                
+                axs[2].set_title(r"Matching rate", loc='center', fontsize=8)
+                im = axs[2].imshow(mr_plot, origin='lower', cmap=plt.cm.jet, vmin=0, vmax=100)
+                axs[2].set_xticks([])
+                axs[2].set_yticks([])
+                
+                divider = make_axes_locatable(axs[2])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                fig.colorbar(im, cax=cax, orientation='vertical')
+            
+                for ax in axs.flat:
+                    ax.label_outer()
+            
+                plt.savefig(model_direc+ "//figure_global_mat"+str(matid)+"_UB"+str(index)+'.png', bbox_inches='tight',format='png', dpi=1000) 
+                plt.close(fig)
+            except:
+                print("Error in plots")
+                
+            spots_len_plot = np.copy(spots_len[index][0])
+            spots_len_plot[nan_index,:] = np.nan
+            spots_len_plot = spots_len_plot.reshape((lim_x, lim_y))
+            
+            iR_pix_plot = np.copy(iR_pix[index][0])
+            iR_pix_plot[nan_index,:] = np.nan
+            iR_pix_plot = iR_pix_plot.reshape((lim_x, lim_y))
+            
+            fR_pix_plot = np.copy(fR_pix[index][0])
+            fR_pix_plot[nan_index,:] = np.nan
+            fR_pix_plot = fR_pix_plot.reshape((lim_x, lim_y))
+            
+            try:
+                fig = plt.figure(figsize=(11.69,8.27), dpi=100)
+                bottom, top = 0.1, 0.9
+                left, right = 0.1, 0.8
+                fig.subplots_adjust(top=top, bottom=bottom, left=left, right=right, hspace=0.15, wspace=0.25)
+            
+                axs = fig.subplots(1, 3)
+                axs[0].set_title(r"Number of spots detected", loc='center', fontsize=8)
+                im = axs[0].imshow(spots_len_plot, origin='lower', cmap=plt.cm.jet)
+                axs[0].set_xticks([])
+                axs[0].set_yticks([])
+                
+                divider = make_axes_locatable(axs[0])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                fig.colorbar(im, cax=cax, orientation='vertical')
+            
+                axs[1].set_title(r"Initial pixel residues", loc='center', fontsize=8)
+                im = axs[1].imshow(iR_pix_plot, origin='lower', cmap=plt.cm.jet)
+                axs[1].set_xticks([])
+                axs[1].set_yticks([])
+                
+                divider = make_axes_locatable(axs[1])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                fig.colorbar(im, cax=cax, orientation='vertical')
+            
+                axs[2].set_title(r"Final pixel residues", loc='center', fontsize=8)
+                im = axs[2].imshow(fR_pix_plot, origin='lower', cmap=plt.cm.jet)
+                axs[2].set_xticks([])
+                axs[2].set_yticks([])
+                
+                divider = make_axes_locatable(axs[2])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                fig.colorbar(im, cax=cax, orientation='vertical')
+            
+                for ax in axs.flat:
+                    ax.label_outer()
+            
+                plt.savefig(model_direc+'//figure_mr_ir_fr_mat'+str(matid)+"_UB"+str(index)+'.png', bbox_inches='tight',format='png', dpi=1000) 
+                plt.close(fig)
+            except:
+                print("Error in plots")
+                
+            try:
+                a,b,c,alp,bet,gam = [],[],[],[],[],[]
+                
+                # constantlength = "a"
+                if ("a" in strain_free_parameters) and ("b" in strain_free_parameters) and ("c" in strain_free_parameters):
+                    constantlength = "a"                    
+                elif ("b" not in strain_free_parameters) and additional_expression[0]=="none" and\
+                    "b" not in additional_expression[0]:
+                    constantlength = "b"
+                elif ("c" not in strain_free_parameters):
+                    constantlength = "c"
+                    
+                for irot in range(len(rotation_matrix1[index][0])):
+                    lattice_parameter_direct_strain = CP.computeLatticeParameters_from_UB(rotation_matrix1[index][0][irot,:,:], 
+                                                                                          material_id[matid], 
+                                                                                          constantlength, 
+                                                                                          dictmaterials=dictLT.dict_Materials)
+                    a.append(lattice_parameter_direct_strain[0])
+                    b.append(lattice_parameter_direct_strain[1])
+                    c.append(lattice_parameter_direct_strain[2])
+                    alp.append(lattice_parameter_direct_strain[3])
+                    bet.append(lattice_parameter_direct_strain[4])
+                    gam.append(lattice_parameter_direct_strain[5])
+                
+                logdata = np.array(a)
+                logdata = logdata[~np.isnan(logdata)]
+                rangemina, rangemaxa = np.min(logdata)-0.01, np.max(logdata)+0.01
+                logdata = np.array(b)
+                logdata = logdata[~np.isnan(logdata)]
+                rangeminb, rangemaxb = np.min(logdata)-0.01, np.max(logdata)+0.01
+                logdata = np.array(c)
+                logdata = logdata[~np.isnan(logdata)]
+                rangeminc, rangemaxc = np.min(logdata)-0.01, np.max(logdata)+0.01
+                logdata = np.array(alp)
+                logdata = logdata[~np.isnan(logdata)]
+                rangeminal, rangemaxal = np.min(logdata)-0.01, np.max(logdata)+0.01
+                logdata = np.array(bet)
+                logdata = logdata[~np.isnan(logdata)]
+                rangeminbe, rangemaxbe = np.min(logdata)-0.01, np.max(logdata)+0.01
+                logdata = np.array(gam)
+                logdata = logdata[~np.isnan(logdata)]
+                rangeminga, rangemaxga = np.min(logdata)-0.01, np.max(logdata)+0.01
+        
+                fig = plt.figure(figsize=(11.69,8.27), dpi=100)
+                bottom, top = 0.1, 0.9
+                left, right = 0.1, 0.8
+                fig.subplots_adjust(top=top, bottom=bottom, left=left, right=right, hspace=0.15, wspace=0.25)
+                
+                vmin = rangemina
+                vmax = rangemaxa
+                axs = fig.subplots(2, 3)
+                axs[0, 0].set_title(r"$a$", loc='center', fontsize=8)
+                strain_matrix_plot = np.array(a)
+                im=axs[0, 0].imshow(strain_matrix_plot.reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                axs[0, 0].set_xticks([])
+                axs[0, 0].set_yticks([])
+                divider = make_axes_locatable(axs[0,0])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+        
+                vmin = rangeminb
+                vmax = rangemaxb
+                axs[0, 1].set_title(r"$b$", loc='center', fontsize=8)
+                strain_matrix_plot = np.array(b)
+                im=axs[0, 1].imshow(strain_matrix_plot.reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                divider = make_axes_locatable(axs[0,1])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+        
+                vmin = rangeminc
+                vmax = rangemaxc
+                axs[0, 2].set_title(r"$c$", loc='center', fontsize=8)
+                strain_matrix_plot = np.array(c)
+                im=axs[0, 2].imshow(strain_matrix_plot.reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                divider = make_axes_locatable(axs[0,2])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+        
+                vmin = rangeminal
+                vmax = rangemaxal
+                axs[1, 0].set_title(r"$\alpha$", loc='center', fontsize=8)
+                strain_matrix_plot = np.array(alp)
+                im=axs[1, 0].imshow(strain_matrix_plot.reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                axs[1, 0].set_xticks([])
+                axs[1, 0].set_yticks([])
+                divider = make_axes_locatable(axs[1,0])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+        
+                vmin = rangeminbe
+                vmax = rangemaxbe
+                axs[1, 1].set_title(r"$\beta$", loc='center', fontsize=8)
+                strain_matrix_plot = np.array(bet)
+                im=axs[1, 1].imshow(strain_matrix_plot.reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                axs[1, 1].set_xticks([])
+                divider = make_axes_locatable(axs[1,1])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+        
+                vmin = rangeminga
+                vmax = rangemaxga
+                axs[1, 2].set_title(r"$\gamma$", loc='center', fontsize=8)
+                strain_matrix_plot = np.array(gam)
+                im = axs[1, 2].imshow(strain_matrix_plot.reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                axs[1, 2].set_xticks([]) 
+                divider = make_axes_locatable(axs[1,2])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.formatter.set_useOffset(False)
+                cbar.ax.tick_params(labelsize=8) 
+                
+                for ax in axs.flat:
+                    ax.label_outer()
+                plt.savefig(model_direc+ "//"+'figure_unitcell_'+str(matid)+'_'+str(index)+'.png', bbox_inches='tight',format='png', dpi=1000) 
+                plt.close(fig)
+            except:
+                # print("Error in unit cell plots")
+                pass
+            
+            try:
+                latticeparams = dictLT.dict_Materials[material_id[matid]][1]
+    
+                a,b,c,alp,bet,gam = [],[],[],[],[],[]
+        
+                # constantlength = "a"
+                if ("a" in strain_free_parameters) and ("b" in strain_free_parameters) and ("c" in strain_free_parameters):
+                    constantlength = "a"    
+                elif ("b" not in strain_free_parameters) and additional_expression[0]=="none" and \
+                    "b" not in additional_expression[0]:
+                    constantlength = "b"
+                elif ("c" not in strain_free_parameters):
+                    constantlength = "c"
+                    
+                for irot in range(len(rotation_matrix1[index][0])):
+                    lattice_parameter_direct_strain = CP.computeLatticeParameters_from_UB(rotation_matrix1[index][0][irot,:,:], 
+                                                                                          material_id[matid], 
+                                                                                          constantlength, 
+                                                                                          dictmaterials=dictLT.dict_Materials)
+                    a.append(lattice_parameter_direct_strain[0])
+                    b.append(lattice_parameter_direct_strain[1])
+                    c.append(lattice_parameter_direct_strain[2])
+                    alp.append(lattice_parameter_direct_strain[3])
+                    bet.append(lattice_parameter_direct_strain[4])
+                    gam.append(lattice_parameter_direct_strain[5])
+        
+                logdata = np.array(a) - latticeparams[0]
+                logdata = logdata[~np.isnan(logdata)]
+                rangemina, rangemaxa = np.min(logdata) - 0.01e-2, np.max(logdata) + 0.01e-2
+                logdata = np.array(b) - latticeparams[1]
+                logdata = logdata[~np.isnan(logdata)]
+                rangeminb, rangemaxb = np.min(logdata) - 0.01e-2, np.max(logdata) + 0.01e-2
+                logdata = np.array(c) - latticeparams[2]
+                logdata = logdata[~np.isnan(logdata)]
+                rangeminc, rangemaxc = np.min(logdata) - 0.01e-2, np.max(logdata) + 0.01e-2
+                logdata = np.array(alp) - latticeparams[3]
+                logdata = logdata[~np.isnan(logdata)]
+                rangeminal, rangemaxal = np.min(logdata) - 0.01, np.max(logdata) + 0.01
+                logdata = np.array(bet) - latticeparams[4]
+                logdata = logdata[~np.isnan(logdata)]
+                rangeminbe, rangemaxbe = np.min(logdata) - 0.01, np.max(logdata) + 0.01
+                logdata = np.array(gam) - latticeparams[5]
+                logdata = logdata[~np.isnan(logdata)]
+                rangeminga, rangemaxga = np.min(logdata) - 0.01, np.max(logdata) + 0.01
+        
+                fig = plt.figure(figsize=(11.69,8.27), dpi=100)
+                bottom, top = 0.1, 0.9
+                left, right = 0.1, 0.8
+                fig.subplots_adjust(top=top, bottom=bottom, left=left, right=right, hspace=0.15, wspace=0.25)
+        
+                vmin = rangemina
+                vmax = rangemaxa
+                axs = fig.subplots(2, 3)
+                axs[0, 0].set_title(r"$a$", loc='center', fontsize=8)
+                strain_matrix_plot = np.array(a) - latticeparams[0]
+                im=axs[0, 0].imshow(strain_matrix_plot.reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                axs[0, 0].set_xticks([])
+                axs[0, 0].set_yticks([])
+                divider = make_axes_locatable(axs[0,0])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+        
+                vmin = rangeminb
+                vmax = rangemaxb
+                axs[0, 1].set_title(r"$b$", loc='center', fontsize=8)
+                strain_matrix_plot = np.array(b) - latticeparams[1]
+                im=axs[0, 1].imshow(strain_matrix_plot.reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                divider = make_axes_locatable(axs[0,1])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+        
+                vmin = rangeminc
+                vmax = rangemaxc
+                axs[0, 2].set_title(r"$c$", loc='center', fontsize=8)
+                strain_matrix_plot = np.array(c) - latticeparams[2]
+                im=axs[0, 2].imshow(strain_matrix_plot.reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                divider = make_axes_locatable(axs[0,2])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+        
+                vmin = rangeminal
+                vmax = rangemaxal
+                axs[1, 0].set_title(r"$\alpha$", loc='center', fontsize=8)
+                strain_matrix_plot = np.array(alp) - latticeparams[3]
+                im=axs[1, 0].imshow(strain_matrix_plot.reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                axs[1, 0].set_xticks([])
+                axs[1, 0].set_yticks([])
+                divider = make_axes_locatable(axs[1,0])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+        
+                vmin = rangeminbe
+                vmax = rangemaxbe
+                axs[1, 1].set_title(r"$\beta$", loc='center', fontsize=8)
+                strain_matrix_plot = np.array(bet) - latticeparams[4]
+                im=axs[1, 1].imshow(strain_matrix_plot.reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                axs[1, 1].set_xticks([])
+                divider = make_axes_locatable(axs[1,1])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.ax.tick_params(labelsize=8) 
+        
+                vmin = rangeminga
+                vmax = rangemaxga
+                axs[1, 2].set_title(r"$\gamma$", loc='center', fontsize=8)
+                strain_matrix_plot = np.array(gam) - latticeparams[5]
+                im = axs[1, 2].imshow(strain_matrix_plot.reshape((lim_x, lim_y)), origin='lower', cmap=plt.cm.jet, vmin=vmin, vmax=vmax)
+                axs[1, 2].set_xticks([]) 
+                divider = make_axes_locatable(axs[1,2])
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
+                cbar.formatter.set_useOffset(False)
+                cbar.ax.tick_params(labelsize=8) 
+        
+                for ax in axs.flat:
+                    ax.label_outer()
+                plt.savefig(model_direc + "//" + 'figure_unitcell_relative_'+str(matid)+'_'+str(index)+'.png', bbox_inches='tight',format='png', dpi=1000) 
+                plt.close(fig)
+            except:
+                # print("Error in relative unit cell plots")
+                pass
+            
+            try:
+                # constantlength = "a"
+                if ("a" in strain_free_parameters) and ("b" in strain_free_parameters) and ("c" in strain_free_parameters):
+                    constantlength = "a"    
+                elif ("b" not in strain_free_parameters) and additional_expression[0]=="none" and \
+                    "b" not in additional_expression[0]:
+                    constantlength = "b"
+                elif ("c" not in strain_free_parameters):
+                    constantlength = "c"
+
+                a,b,c,alp,bet,gam = [],[],[],[],[],[]
+                #TODO all images and not only one
+                for irot in range(len(rotation_matrix1[index][0])):
+                    lattice_parameter_direct_strain = CP.computeLatticeParameters_from_UB(rotation_matrix1[index][0][irot,:,:], 
+                                                                                          material_id[matid], 
+                                                                                          constantlength, 
+                                                                                          dictmaterials=dictLT.dict_Materials)
+                    a.append(lattice_parameter_direct_strain[0])
+                    b.append(lattice_parameter_direct_strain[1])
+                    c.append(lattice_parameter_direct_strain[2])
+                    alp.append(lattice_parameter_direct_strain[3])
+                    bet.append(lattice_parameter_direct_strain[4])
+                    gam.append(lattice_parameter_direct_strain[5])
+                
+                title = "Refined unit cell"+" "+material_id[matid]+ " "+str(index)
+                fig = plt.figure()
+                axs = fig.subplots(2, 3)
+                axs[0, 0].set_title(r"a", loc='center', fontsize=8)
+                logdata = np.array(a)
+                logdata = logdata[~np.isnan(logdata)]
+                rangemin, rangemax = np.min(logdata)-0.01, np.max(logdata)+0.01
+                axs[0, 0].hist(logdata, bins=bins, density=True, alpha=0.8, range=(rangemin, rangemax))
+                axs[0, 0].set_ylabel('Frequency', fontsize=8)
+                axs[0, 0].tick_params(axis='both', which='major', labelsize=8)
+                axs[0, 0].tick_params(axis='both', which='minor', labelsize=8)
+            
+                axs[0, 1].set_title(r"b", loc='center', fontsize=8)
+                logdata = np.array(b)
+                logdata = logdata[~np.isnan(logdata)]
+                rangemin, rangemax = np.min(logdata)-0.01, np.max(logdata)+0.01
+                axs[0, 1].hist(logdata, bins=bins, density=True, alpha=0.8, range=(rangemin, rangemax))
+                axs[0, 1].set_ylabel('Frequency', fontsize=8)
+                axs[0, 1].tick_params(axis='both', which='major', labelsize=8)
+                axs[0, 1].tick_params(axis='both', which='minor', labelsize=8)
+                
+                axs[0, 2].set_title(r"c", loc='center', fontsize=8)
+                logdata = np.array(c)
+                logdata = logdata[~np.isnan(logdata)]
+                rangemin, rangemax = np.min(logdata)-0.01, np.max(logdata)+0.01
+                axs[0, 2].hist(logdata, bins=bins, density=True, alpha=0.8, range=(rangemin, rangemax))
+                axs[0, 2].set_ylabel('Frequency', fontsize=8)
+                axs[0, 2].tick_params(axis='both', which='major', labelsize=8)
+                axs[0, 2].tick_params(axis='both', which='minor', labelsize=8)
+                
+                axs[1, 0].set_title(r"$\alpha$", loc='center', fontsize=8)
+                logdata = np.array(alp)
+                logdata = logdata[~np.isnan(logdata)]
+                rangemin, rangemax = np.min(logdata)-0.01, np.max(logdata)+0.01
+                axs[1, 0].hist(logdata, bins=bins, density=True, alpha=0.8, range=(rangemin, rangemax))
+                axs[1, 0].set_ylabel('Frequency', fontsize=8)
+                axs[1, 0].tick_params(axis='both', which='major', labelsize=8)
+                axs[1, 0].tick_params(axis='both', which='minor', labelsize=8)
+                
+                axs[1, 1].set_title(r"$\beta$", loc='center', fontsize=8)
+                logdata = np.array(bet)
+                logdata = logdata[~np.isnan(logdata)]
+                rangemin, rangemax = np.min(logdata)-0.01, np.max(logdata)+0.01
+                axs[1, 1].hist(logdata, bins=bins, density=True, alpha=0.8, range=(rangemin, rangemax))
+                axs[1, 1].set_ylabel('Frequency', fontsize=8)
+                axs[1, 1].tick_params(axis='both', which='major', labelsize=8)
+                axs[1, 1].tick_params(axis='both', which='minor', labelsize=8)
+                
+                axs[1, 2].set_title(r"$\gamma$", loc='center', fontsize=8)
+                logdata = np.array(gam)
+                logdata = logdata[~np.isnan(logdata)]
+                rangemin, rangemax = np.min(logdata)-0.01, np.max(logdata)+0.01
+                axs[1, 2].hist(logdata, bins=bins, density=True, alpha=0.8, range=(rangemin, rangemax))
+                axs[1, 2].set_ylabel('Frequency', fontsize=8)
+                axs[1, 2].tick_params(axis='both', which='major', labelsize=8)
+                axs[1, 2].tick_params(axis='both', which='minor', labelsize=8)
+            
+                plt.tight_layout()
+                plt.savefig(model_direc+"\\"+title+'.png', format='png', dpi=1000) 
+                plt.close(fig)
+            except:
+                continue
+# =============================================================================
+# For 2D histogram sampling 
+# =============================================================================
+class WalkerRandomSampling(object):
+    """Walker's alias method for random objects with different probablities.
+    Based on the implementation of Denis Bzowy at the following URL:
+    http://code.activestate.com/recipes/576564-walkers-alias-method-for-random-objects-with-diffe/
+    """
+    def __init__(self, weights, keys=None):
+        """Builds the Walker tables ``prob`` and ``inx`` for calls to `random()`.
+        The weights (a list or tuple or iterable) can be in any order and they
+        do not even have to sum to 1."""
+        n = self.n = len(weights)
+        if keys is None:
+            self.keys = keys
+        else:
+            self.keys = np.array(keys)
+
+        if isinstance(weights, (list, tuple)):
+            weights = np.array(weights, dtype=float)
+        elif isinstance(weights, np.ndarray):
+            if weights.dtype != float:
+                weights = weights.astype(float)
+        else:
+            weights = np.array(list(weights), dtype=float)
+
+        if weights.ndim != 1:
+            raise ValueError("weights must be a vector")
+
+        weights = weights * n / weights.sum()
+
+        inx = -np.ones(n, dtype=int)
+        short = np.where(weights < 1)[0].tolist()
+        long = np.where(weights > 1)[0].tolist()
+        while short and long:
+            j = short.pop()
+            k = long[-1]
+
+            inx[j] = k
+            weights[k] -= (1 - weights[j])
+            if weights[k] < 1:
+                short.append( k )
+                long.pop()
+
+        self.prob = weights
+        self.inx = inx
+
+    def random(self, count=None):
+        """Returns a given number of random integers or keys, with probabilities
+        being proportional to the weights supplied in the constructor.
+        When `count` is ``None``, returns a single integer or key, otherwise
+        returns a NumPy array with a length given in `count`.
+        """
+        if count is None:
+            u = np.random.random()
+            j = np.random.randint(self.n)
+            k = j if u <= self.prob[j] else self.inx[j]
+            return self.keys[k] if self.keys is not None else k
+
+        u = np.random.random(count)
+        j = np.random.randint(self.n, size=count)
+        k = np.where(u <= self.prob[j], j, self.inx[j])
+        return self.keys[k] if self.keys is not None else k
+
+
+def convert_pickle_to_hdf5():
+    ### a method for writing the data in pickle file to hdf5 format for later query
+    pass
+
+
+if __name__ == "__main__":
+    print("Modules of LaueNN")

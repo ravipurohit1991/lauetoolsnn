@@ -14,6 +14,44 @@
 # In[1]:
 
 if __name__ == '__main__':     #enclosing required because of multiprocessing
+
+    ## If material key does not exist in Lauetoolsnn dictionary
+    ## you can modify its JSON materials file before import or starting analysis
+    import json
+    
+    ## Load the json of material and extinctions
+    with open(r'C:\Users\purushot\Desktop\github_version_simple\lauetoolsnn\lauetools\material.json','r') as f:
+        dict_Materials = json.load(f)
+
+    with open(r'C:\Users\purushot\Desktop\github_version_simple\lauetoolsnn\lauetools\extinction.json','r') as f:
+        extinction_json = json.load(f)
+        
+    ## Modify the dictionary values to add new entries
+    dict_Materials["ZrO2_mono"] = ["ZrO2_mono", [5.1471,  5.2125, 5.3129, 90, 99.23, 90], "VO2_mono"]
+    dict_Materials["ZrO2_tet"] = ["ZrO2_tet", [3.64,  3.64, 5.27, 90, 90, 90], "VO2_mono2tet"]
+    dict_Materials["ZrO2_cub"] = ["ZrO2_cub", [4.625,  4.625, 4.625, 90, 90, 90], "225"]
+    dict_Materials["Zr_alpha"] = ["Zr_alpha", [3.23,  3.23, 5.15, 90, 90, 120], "hcp"]
+    dict_Materials["Zr_beta"] = ["Zr_beta", [3.62,  3.62, 3.62, 90, 90, 90], "229"]
+    dict_Materials["Nb_beta"] = ["Nb_beta", [3.585,  3.585, 3.585, 90, 90, 90], "229"]
+    dict_Materials["Zr_Nb_Fe"] = ["Zr_Nb_Fe", [4.879,  4.879, 7.992, 90, 90, 120], "hcp"]
+    dict_Materials["Cr"] = ["Cr", [2.87,  2.87, 2.87, 90, 90, 90], "229"]
+    dict_Materials["C14"] = ["C14", [5.05,  5.05, 8.24, 90, 90, 120], "hcp"]
+    dict_Materials["C15"] = ["C15", [7.15,  7.15, 7.15, 90, 90, 90], "227"]
+    
+    extinction_json["VO2_mono2tet"] = "VO2_mono2tet"
+    extinction_json["VO2_mono"] = "VO2_mono"
+    extinction_json["hcp"] = "hcp"
+    extinction_json["229"] = "229"
+    extinction_json["227"] = "227"
+    extinction_json["225"] = "225"
+    
+    ## dump the json back with new values
+    with open(r'C:\Users\purushot\Desktop\github_version_simple\lauetoolsnn\lauetools\material.json', 'w') as fp:
+        json.dump(dict_Materials, fp)
+
+    with open(r'C:\Users\purushot\Desktop\github_version_simple\lauetoolsnn\lauetools\extinction.json', 'w') as fp:
+        json.dump(extinction_json, fp)
+
     ## Import modules used for this Notebook
     import os
     import numpy as np
@@ -21,12 +59,14 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
     import itertools
     from keras.callbacks import EarlyStopping, ModelCheckpoint
     import matplotlib.pyplot as plt
-    
+    from tqdm import trange
     ## if LaueToolsNN is properly installed
     try:
         from lauetoolsnn.utils_lauenn import generate_classHKL, generate_multimat_dataset, \
                                         rmv_freq_class_MM, get_multimaterial_detail,\
                                         array_generator, array_generator_verify, vali_array
+        from lauetoolsnn.NNmodels import model_arch_general_optimized, LoggingCallback,\
+                                    model_arch_general_onelayer, model_arch_CNN_DNN_optimized
     except:
         # else import from a path where LaueToolsNN files are
         import sys
@@ -34,6 +74,10 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
         from utils_lauenn import generate_classHKL, generate_multimat_dataset, \
                                 rmv_freq_class_MM, get_multimaterial_detail,\
                                 array_generator, array_generator_verify, vali_array
+        from NNmodels import model_arch_general_optimized, LoggingCallback,\
+                                    model_arch_general_onelayer, model_arch_CNN_DNN_optimized
+                                
+                                
     
     # ## step 1: define material and other parameters for simulating Laue patterns
         
@@ -46,15 +90,25 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
                     # =============================================================================
                     #       GENERATION OF DATASET              
                     # =============================================================================
-                    "material_": ["Cu","Si","Ge","GaN"],             ## same key as used in dict_LaueTools
-                    "prefix" : "",                 ## prefix for the folder to be created for training dataset
-                    "symmetry": ["cubic","cubic","cubic","hexagonal"],           ## crystal symmetry of material_
-                    "SG": [225,230,230,186],                     ## Space group of material_ (None if not known)
-                    "hkl_max_identify" : [3,3,3,5],        ## Maximum hkl index to classify in a Laue pattern
-                    "maximum_angle_to_search":90, ## Angle of radial distribution to reconstruct the histogram (in deg)
+                    "prefix" : "",
+                    "material_": ["Zr_alpha",
+                                  "ZrO2_mono",
+                                  ],             ## same key as used in dict_LaueTools
+                    "symmetry": ["hexagonal",
+                                 "monoclinic",
+                                 ],           ## crystal symmetry of material_
+                    "SG": [194,
+                           14,
+                           ],                     ## Space group of material_ (None if not known)
+                    "hkl_max_identify" : [6,
+                                          8,
+                                          ],        ## Maximum hkl index to classify in a Laue pattern
+                    "nb_grains_per_lp" : [4,
+                                          4,
+                                          ],        ## max grains to be generated in a Laue Image
+                    "grains_nb_simulate" : 500,    ## Number of orientations to generate (takes advantage of crystal symmetry)
+                    "maximum_angle_to_search":120, ## Angle of radial distribution to reconstruct the histogram (in deg)
                     "step_for_binning" : 0.1,      ## bin widht of angular radial distribution in degree
-                    "nb_grains_per_lp" : [1,1,1,1],        ## max grains to be generated in a Laue Image
-                    "grains_nb_simulate" : 100,    ## Number of orientations to generate (takes advantage of crystal symmetry)
                     # =============================================================================
                     #        Detector parameters (roughly) of the Experimental setup
                     # =============================================================================
@@ -68,22 +122,30 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
                     # =============================================================================
                     #       Training paarmeters             
                     # =============================================================================
-                    "freq_rmv_classhkl" : [100,100,100,100],
-                    "keep_length_classhkl" : ["all","all","all","all"],
+                    "freq_rmv_classhkl" : [100,
+                                           100,
+                                           ],
+                    "keep_length_classhkl" : [50,
+                                              100,
+                                              ],
+                    "list_hkl_keep" : [
+                                        [(0,0,1)],
+                                        [(0,0,0)]                        
+                                        ],
                     "batch_size":50,               ## batches of files to use while training
-                    "epochs":8,   
+                    "epochs":30,   
                     }
     
-    generate_data = True
+    generate_data = False
     train_model = True
     
     # ### number of files it will generate fro training
-    # nb_grains_list = []
-    # for ino, imat in enumerate(input_params["material_"]):
-    #     nb_grains_list.append(list(range(input_params["nb_grains_per_lp"][ino]+1)))
-    # list_permute = list(itertools.product(*nb_grains_list))
-    # list_permute.pop(0)
-    # print(len(list_permute)*input_params["grains_nb_simulate"])
+    nb_grains_list = []
+    for ino, imat in enumerate(input_params["material_"]):
+        nb_grains_list.append(list(range(input_params["nb_grains_per_lp"][ino]+1)))
+    list_permute = list(itertools.product(*nb_grains_list))
+    list_permute.pop(0)
+    print(len(list_permute)*input_params["grains_nb_simulate"])
     # ## Step 2: Get material parameters 
     # ### Generates a folder with material name and gets material unit cell parameters and symmetry object 
     # from the get_material_detail function
@@ -110,7 +172,7 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
                 continue
             prefix_mat = prefix_mat + "_" + imat
     else:
-        prefix_mat = material_
+        prefix_mat = material_[0]
     
     save_directory = os.getcwd()+"//"+prefix_mat+input_params["prefix"]
 
@@ -130,7 +192,7 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
         ### generate_classHKL_multimat
         ## procedure for generation of GROUND TRUTH classes
         # general_diff_cond = True will eliminate the hkl index that does not satisfy the general reflection conditions
-        for ino, imat in enumerate(material_):
+        for ino in trange(len(material_)):
             generate_classHKL(n[ino], rules[ino], lattice_material[ino], \
                               symmetry[ino], material_[ino], \
                               crystal=crystal[ino], SG=SG[ino], general_diff_cond=False,
@@ -190,7 +252,7 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
                                  modelp = "random",
                                  general_diff_rules = False, 
                                  crystal = crystal,)
-    
+        
         #%%# Updating the ClassHKL list by removing the non-common HKL or less frequent HKL from the list
         ## The non-common HKL can occur as a result of the detector position and energy used
         # freq_rmv: remove output hkl if the training dataset has less tha 100 occurances of the considered hkl (freq_rmv1 for second phase)
@@ -198,10 +260,13 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
         
         freq_rmv = input_params["freq_rmv_classhkl"]
         elements = input_params["keep_length_classhkl"]
+        list_hkl_keep = input_params["list_hkl_keep"]
         
         rmv_freq_class_MM(freq_rmv = freq_rmv, elements = elements,
                           save_directory = save_directory, material_ = material_,
-                          write_to_console = print, progress=None, qapp=None)
+                          write_to_console = print, progress=None, qapp=None,
+                          list_hkl_keep = list_hkl_keep)
+        
         
         ## End of data generation for Neural network training: all files are saved in the same folder 
         ## to be later used for training and prediction
@@ -211,92 +276,16 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
 
     # In[3]:
     if train_model:
+        
         classhkl = np.load(save_directory+"//MOD_grain_classhkl_angbin.npz")["arr_0"]
         angbins = np.load(save_directory+"//MOD_grain_classhkl_angbin.npz")["arr_1"]
         loc_new = np.load(save_directory+"//MOD_grain_classhkl_angbin.npz")["arr_2"]
         with open(save_directory+"//class_weights.pickle", "rb") as input_file:
             class_weights = cPickle.load(input_file)
         class_weights = class_weights[0]
-        
         n_bins = len(angbins)-1
         n_outputs = len(classhkl)
         print(n_bins, n_outputs)
-        
-        
-        # ## Step 3: Defining a neural network architecture
-        
-        # In[4]:
-        
-        
-        import tensorflow as tf
-        import keras
-        from keras.regularizers import l2
-        from keras.models import Sequential
-        from keras.layers import Dense, Activation, Dropout
-        
-        metricsNN = [
-                    keras.metrics.FalseNegatives(name="fn"),
-                    keras.metrics.FalsePositives(name="fp"),
-                    keras.metrics.TrueNegatives(name="tn"),
-                    keras.metrics.TruePositives(name="tp"),
-                    keras.metrics.Precision(name="precision"),
-                    keras.metrics.Recall(name="accuracy"),
-                    ]
-        
-        def model_arch_general_optimized(n_bins, n_outputs, kernel_coeff = 0.0005, bias_coeff = 0.0005, lr=None, verbose=1,
-                                write_to_console=None):
-            """
-            Very simple and straight forward Neural Network with few hyperparameters
-            straighforward RELU activation strategy with cross entropy to identify the HKL
-            Tried BatchNormalization --> no significant impact
-            Tried weighted approach --> not better for HCP
-            Trying Regularaization 
-            l2(0.001) means that every coefficient in the weight matrix of the layer 
-            will add 0.001 * weight_coefficient_value**2 to the total loss of the network
-            1e-3,1e-5,1e-6
-            """
-            if n_outputs >= n_bins:
-                param = n_bins
-                if param*15 < (2*n_outputs): ## quick hack; make Proper implementation
-                    param = (n_bins + n_outputs)//2
-            else:
-                param = n_outputs*2 ## More reasonable ???
-                
-            model = Sequential()
-            model.add(keras.Input(shape=(n_bins,)))
-            ## Hidden layer 1
-            model.add(Dense(n_bins, kernel_regularizer=l2(kernel_coeff), bias_regularizer=l2(bias_coeff)))
-            # model.add(BatchNormalization())
-            model.add(Activation('relu'))
-            model.add(Dropout(0.3)) ## Adding dropout as we introduce some uncertain data with noise
-            ## Hidden layer 2
-            model.add(Dense(((param)*15 + n_bins)//2, kernel_regularizer=l2(kernel_coeff), bias_regularizer=l2(bias_coeff)))
-            # model.add(BatchNormalization())
-            model.add(Activation('relu'))
-            model.add(Dropout(0.3))
-            ## Hidden layer 3
-            model.add(Dense((param)*15, kernel_regularizer=l2(kernel_coeff), bias_regularizer=l2(bias_coeff)))
-            # model.add(BatchNormalization())
-            model.add(Activation('relu'))
-            model.add(Dropout(0.3))
-            ## Output layer 
-            model.add(Dense(n_outputs, activation='softmax'))
-            ## Compile model
-            if lr != None:
-                otp = tf.keras.optimizers.Adam(learning_rate=lr)
-                model.compile(loss='categorical_crossentropy', optimizer=otp, metrics=[metricsNN])
-            else:
-                model.compile(loss='categorical_crossentropy', optimizer="adam", metrics=[metricsNN])
-            
-            if verbose == 1:
-                model.summary()
-                stringlist = []
-                model.summary(print_fn=lambda x: stringlist.append(x))
-                short_model_summary = "\n".join(stringlist)
-                if write_to_console!=None:
-                    write_to_console(short_model_summary)
-            return model
-        
         
         # ## Step 4: Training  
             
@@ -313,7 +302,7 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
                     continue
                 prefix_mat = prefix_mat + "_" + imat
         else:
-            prefix_mat = material_
+            prefix_mat = material_[0]
             
         model_name = save_directory+"//model_"+prefix_mat
         
@@ -321,10 +310,33 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
         # neurons_multiplier is a list with number of neurons per layer, the first 
         # value is input shape and last value is output shape, 
         # inbetween are the number of neurons per hidden layers
-        model = model_arch_general_optimized(  n_bins, n_outputs,
-                                                kernel_coeff = 1e-5,
-                                                bias_coeff = 1e-6,
-                                                lr = 1e-3,
+        
+        # model = model_arch_general_optimized(  n_bins, n_outputs,
+        #                                         kernel_coeff = 1e-5,
+        #                                         bias_coeff = 1e-6,
+        #                                         lr = 1e-3,
+        #                                         )
+        # model = model_arch_general_onelayer(  n_bins, n_outputs,
+        #                                         kernel_coeff = 1e-5,
+        #                                         bias_coeff = 1e-6,
+        #                                         lr = 1e-3,
+        #                                         )
+        
+        model = model_arch_CNN_DNN_optimized(
+                                                (n_bins, 1), 
+                                                layer_activation="relu", 
+                                                output_activation="softmax",
+                                                dropout=0.2,
+                                                stride = [5,2],
+                                                kernel_size = [10,3],
+                                                pool_size=[2,1],
+                                                CNN_layers = 2,
+                                                CNN_filters = [128,128],
+                                                DNN_layers = 0,
+                                                DNN_filters = [1000,500],
+                                                output_neurons = n_outputs,
+                                                learning_rate = 0.001,
+                                                output="DNN"
                                                 )
         # Save model config and weights
         model_json = model.to_json()
@@ -356,11 +368,12 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
         testing_data_generator = array_generator(save_directory+"//testing_data", batch_size,                                           
                                                  len(classhkl), loc_new, print)
         
+        
         ######### TRAIN THE DATA
         es = EarlyStopping(monitor='val_accuracy', mode='max', patience=2)
         ms = ModelCheckpoint(save_directory+"//best_val_acc_model.h5", monitor='val_accuracy', 
                               mode='max', save_best_only=True)
-    
+        lc = LoggingCallback(None, None, None, model, model_name)
         ## Fitting function
         stats_model = model.fit(
                                 training_data_generator, 
@@ -370,7 +383,7 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
                                 validation_steps=val_steps_per_epoch,
                                 verbose=1,
                                 class_weight=class_weights,
-                                callbacks=[es, ms]
+                                callbacks=[es, ms, lc]
                                 )          
         # serialize weights to HDF5
         model.save_weights(model_name+".h5")

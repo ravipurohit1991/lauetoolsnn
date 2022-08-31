@@ -683,12 +683,7 @@ def fitoneimage_manypeaks(filename, peaklist, boxsize, stackimageindex=-1,
     # pixel deviations from guessed initial position before fitting
     Xdev = peak_X - peaklist[:, 0]
     Ydev = peak_Y - peaklist[:, 1]
-
-    #     print "peak_X",peak_X
-    #     print "peaklist[:, 0]",peaklist[:, 0]
-    #     print 'Xdev', Xdev
-    #     print "Ydev", Ydev
-
+    
     # --- --- PEAKS REJECTION -------------------------------
     # print "peaklist[:20]",peaklist[:]
     # number of iteration screening
@@ -711,9 +706,6 @@ def fitoneimage_manypeaks(filename, peaklist, boxsize, stackimageindex=-1,
 
     # too far found peak rejection
     to_reject3 = np.where(np.sqrt(Xdev ** 2 + Ydev ** 2) > FitPixelDev)[0]
-    #     print 'to_reject3', to_reject3
-
-    #     print "peak_I",peak_I
 
     # too intense compared to given threshold (saturation)
     to_reject4 = np.where(peak_I >= MaxIntensity)[0]
@@ -736,7 +728,6 @@ def fitoneimage_manypeaks(filename, peaklist, boxsize, stackimageindex=-1,
         print("to_reject2 ...(len)", len(to_reject2))
         print(np.take(peaklist, to_reject2, axis=0))
         print(np.take(peaklist, to_reject3, axis=0))
-
         print("After fitting, {}/{} peaks have been rejected\n due to (final - initial position)> FitPixelDev = {}".format(
                 len(to_reject3), len(peaklist), FitPixelDev))
         print("{} spots have been rejected\n due to negative baseline".format(len(to_reject2)))
@@ -774,44 +765,29 @@ def fitoneimage_manypeaks(filename, peaklist, boxsize, stackimageindex=-1,
     tabpeak = np.array([peak_X, peak_Y, peak_I, peak_fwaxmaj, peak_fwaxmin, peak_inclination,
                         Xdev, Ydev, peak_bkg, Ipixmax]).T
 
-    # print("Results of all fits in tabpeak", tabpeak)
-
     tabpeak = np.take(tabpeak, list(ToTake), axis=0)
 
-    #     print "tabpeak.shape",tabpeak.shape
     if len(tabpeak.shape) > 1:  # several peaks
         intense_rank = np.argsort(tabpeak[:, 2])[::-1]  # sort by decreasing intensity-bkg
-        #    print "intense_rank", intense_rank
-
         tabIsorted = tabpeak[intense_rank]
-    #         print "tabIsorted.shape case 1",tabIsorted.shape
-
-    else:  # single peak
-        #         tabIsorted = np.array(tabpeak)[:,0]
-        print("tabIsorted.shape case 2", tabIsorted.shape)
-
+        
     if position_definition == 1:  # XMAS offset
         tabIsorted[:, :2] = tabIsorted[:, :2] + np.array([1, 1])
 
-    if verbose>1:
+    if verbose:
         print("\n\nIntensity sorted\n\n")
         print(tabIsorted[:10])
         print("X,Y", tabIsorted[:10, :2])
-    if verbose:
         print("\n{} fitted peak(s)\n".format(len(tabIsorted)))
 
     if purgeDuplicates and len(tabIsorted) > 2:
         if verbose: print("Removing duplicates from fit")
 
-        # remove duplicates (close points), the most intense pixel is kept
         # minimum distance fit solutions
         pixeldistance = boxsize
 
         # tabXY, index_todelete
         _, index_todelete = GT.purgeClosePoints2(tabIsorted[:, :2], pixeldistance)
-
-        #         print tabXY
-        #         print index_todelete
 
         tabIsorted = np.delete(tabIsorted, tuple(index_todelete), axis=0)
         if verbose:

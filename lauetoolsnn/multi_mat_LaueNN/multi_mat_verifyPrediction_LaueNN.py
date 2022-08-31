@@ -30,17 +30,18 @@ if __name__ == "__main__":
     from itertools import accumulate
     ## if LaueToolsNN is properly installed
     try:
-        from lauetoolsnn.utils_lauenn import get_multimaterial_detail, read_hdf5, new_MP_multimat_function, resource_path
+        from lauetoolsnn.utils_lauenn import get_multimaterial_detail, new_MP_multimat_function, resource_path, global_plots_MM
         from lauetoolsnn.lauetools import dict_LaueTools as dictLT
+        from lauetoolsnn.NNmodels import read_hdf5
     except:
         # else import from a path where LaueToolsNN files are
         import sys
         sys.path.append(r"C:\Users\purushot\Desktop\github_version_simple\lauetoolsnn")
-        from utils_lauenn import get_multimaterial_detail, read_hdf5, new_MP_multimat_function, resource_path         
+        from utils_lauenn import get_multimaterial_detail, new_MP_multimat_function, resource_path, global_plots_MM
+        from NNmodels import read_hdf5        
         sys.path.append(r"C:\Users\purushot\Desktop\github_version_simple\lauetoolsnn\lauetools")
         import dict_LaueTools as dictLT
     
-    from keras.models import model_from_json
     import _pickle as cPickle
     from tqdm import tqdm
     
@@ -56,10 +57,16 @@ if __name__ == "__main__":
                     # =============================================================================
                     #       GENERATION OF DATASET              
                     # =============================================================================
-                    "material_": ["Cu","Si","Ge","GaN"],             ## same key as used in dict_LaueTools
+                    "material_": ["Zr_alpha",
+                                  "ZrO2_mono",
+                                  ],             ## same key as used in dict_LaueTools
                     "prefix" : "",                 ## prefix for the folder to be created for training dataset
-                    "symmetry": ["cubic","cubic","cubic","hexagonal"],           ## crystal symmetry of material_
-                    "SG": [225,230,230,186],                     ## Space group of material_ (None if not known)
+                    "symmetry": ["hexagonal",
+                                 "monoclinic",
+                                 ],           ## crystal symmetry of material_
+                    "SG": [194,
+                           14,
+                           ],                     ## Space group of material_ (None if not known)
                     # =============================================================================
                     #        Detector parameters (roughly) of the Experimental setup
                     # =============================================================================
@@ -73,20 +80,26 @@ if __name__ == "__main__":
                     # =============================================================================
                     #       Prediction paarmeters             
                     # =============================================================================
-                    "experimental_directory": "",
-                    "experimental_prefix": "",
-                    "use_simulated_dataset": True,  ## Use simulated dataset (generated at step 3a) incase no experimental data to verify the trained model
-                    "grid_size_x" : 5,            ## Grid X and Y limit to generate the simulated dataset (a rectangular scan region)
+                    "experimental_directory": r"C:\Users\purushot\Desktop\Guillou_Laue\scan_0012",
+                    "experimental_prefix": "ech1_map2D_3_",
+                    "grid_size_x" : 1,            ## Grid X and Y limit to generate the simulated dataset (a rectangular scan region)
                     "grid_size_y" : 5,  
-                    "UB_tolerance": [0.5,0.5,0.5,0.5],
+                    "UB_tolerance": [0.6,
+                                     0.6,
+                                     ],
                     "tolerance_strain": [
                                         [0.6,0.55,0.5,0.45,0.4,0.35,0.3,0.25,0.2,0.15],
                                         [0.6,0.55,0.5,0.45,0.4,0.35,0.3,0.25,0.2,0.15],
-                                        [0.6,0.55,0.5,0.45,0.4,0.35,0.3,0.25,0.2,0.15],
-                                        [0.6,0.55,0.5,0.45,0.4,0.35,0.3,0.25,0.2,0.15]
                                         ],
                     "strain_free_parameters": ["b","c","alpha","beta","gamma"],
-                    "material_ub_limit": [1000,1000,1000,1000]
+                    "material_ub_limit": [10,
+                                          10,
+                                          ],
+                    
+                    "UB_matrix_detect": 12,
+                    "material_phase_always_present": [1,1,1,1,1,1,1,1,1,2,2,2],
+                    ## in case if one phase is always present in a Laue pattern (useful for substrate cases)
+                    # or for pretty plots
                     }
     
     #%% ## Step 2: Get material parameters 
@@ -106,6 +119,8 @@ if __name__ == "__main__":
     tolerance_strain = input_params["tolerance_strain"]
     strain_free_parameters = input_params["strain_free_parameters"]
     material_limit = input_params["material_ub_limit"]
+    material_phase_always_present = input_params["material_phase_always_present"]
+    model_annote = "from_file"
     
     if len(material_) > 1:
         prefix_mat = material_[0]
@@ -114,7 +129,7 @@ if __name__ == "__main__":
                 continue
             prefix_mat = prefix_mat + "_" + imat
     else:
-        prefix_mat = material_
+        prefix_mat = material_[0]
     
     model_direc = os.getcwd()+"//"+prefix_mat+input_params["prefix"]
     
@@ -145,7 +160,7 @@ if __name__ == "__main__":
         hkl_all_class0.append(hkl_all_class_load)
         
     ## Experimental peak search parameters in case of RAW LAUE PATTERNS from detector
-    intensity_threshold = 50
+    intensity_threshold = 150
     boxsize = 10
     fit_peaks_gaussian = 1
     FitPixelDev = 18
@@ -153,19 +168,18 @@ if __name__ == "__main__":
     bkg_treatment = "A-B"
 
     ## Requirements
-    ubmat = 4 # How many orientation matrix to detect per Laue pattern
-    mode_spotCycle = "slow" ## mode of calculation
+    ubmat = input_params["UB_matrix_detect"] # How many orientation matrix to detect per Laue pattern
+    mode_spotCycle = "graphmode" ## mode of calculation
     use_previous_UBmatrix_name = False ## Try previous indexation solutions to speed up the process
     strain_calculation = True ## Strain refinement is required or not
     ccd_label_global = "sCMOS"
 
     ## Parameters to control the orientation matrix indexation
     softmax_threshold_global = 0.80 # softmax_threshold of the Neural network to consider
-    mr_threshold_global = 0.90 # match rate threshold to accept a solution immediately
-    cap_matchrate = 0.01 * 100 ## any UB matrix providing MR less than this will be ignored
+    mr_threshold_global = 0.70 # match rate threshold to accept a solution immediately
+    cap_matchrate = 0.20 * 100 ## any UB matrix providing MR less than this will be ignored
     coeff = 0.10            ## coefficient to calculate the overlap of two solutions
     coeff_overlap = 0.10    ##10% spots overlap is allowed with already indexed orientation
-    material_phase_always_present = "none" ## in case if one phase is always present in a Laue pattern (useful for substrate cases)
     
     ## Additional parameters to refine the orientation matrix construction process
     use_om_user = "false"
@@ -196,7 +210,6 @@ if __name__ == "__main__":
         config_setting.write(configfile)
     
     ## load model related files and generate the model
-    json_file = open(model_direc+"//model_"+prefix_mat+".json", 'r')
     classhkl = np.load(model_direc+"//MOD_grain_classhkl_angbin.npz")["arr_0"]
     angbins = np.load(model_direc+"//MOD_grain_classhkl_angbin.npz")["arr_1"]
     ind_mat_all = np.load(model_direc+"//MOD_grain_classhkl_angbin.npz",allow_pickle=True)["arr_5"]
@@ -205,19 +218,11 @@ if __name__ == "__main__":
         ind_mat.append(len(inni))
     ind_mat = [item for item in accumulate(ind_mat)]
     
+    # json_file = open(model_direc+"//model_"+prefix_mat+".json", 'r')
     load_weights = model_direc + "//model_"+prefix_mat+".h5"
     wb = read_hdf5(load_weights)
     temp_key = list(wb.keys())
-    
-    # # load json and create model
-    loaded_model_json = json_file.read()
-    json_file.close()
-    model = model_from_json(loaded_model_json)
-    print("Constructing model")
-    model.load_weights(load_weights)
-    print("Uploading weights to model")
-    print("All model files found and loaded")
-    
+
     ct = time.time()
     now = datetime.datetime.fromtimestamp(ct)
     c_time = now.strftime("%Y-%m-%d_%H-%M-%S")   
@@ -359,49 +364,72 @@ if __name__ == "__main__":
                 use_previous_UBmatrix_name,
                 material_phase_always_present,
                 crystal,
-                strain_free_parameters] for ii in range(count_global)]
-
-    #%% Launch multiprocessing prediction     
-    args = zip(valu12)
-    with multiprocessing.Pool(ncpu) as pool:
-        results = pool.starmap(new_MP_multimat_function, tqdm(args, total=len(valu12)))
+                strain_free_parameters,
+                model_annote] for ii in range(count_global)]
+    
+    # start_time = time.time()
+    # # Launch on single file to verify
+    # results = new_MP_multimat_function(valu12[0])
+    # print('Took ',time.time()-start_time, "seconds")
+    
+    # print("matching rate")
+    # temp_0 = [results[6][i][0][0] for i in range(len(results[6]))]
+    # print(temp_0)
+    
+    # print("Orientation metrix")
+    # temp_0 = [results[2][i][0][0].ravel() for i in range(len(results[6]))]
+    # for itemm in temp_0:
+    #     print(",".join(str(x) for x in itemm))
         
-        for r in results:
-            r_message_mpdata = r
-            strain_matrix_mpdata, strain_matrixs_mpdata, rotation_matrix_mpdata, col_mpdata,\
-            colx_mpdata, coly_mpdata, match_rate_mpdata, mat_global_mpdata,\
-                cnt_mpdata, meta_mpdata, files_treated_mpdata, spots_len_mpdata, \
-                    iR_pixel_mpdata, fR_pixel_mpdata, best_match_mpdata, check_mpdata = r_message_mpdata
-    
-            for i_mpdata in files_treated_mpdata:
-                files_treated.append(i_mpdata)
-    
-            for intmat_mpdata in range(int(ubmat)):
-                check[cnt_mpdata,intmat_mpdata] = check_mpdata[cnt_mpdata,intmat_mpdata]
-                mat_global[intmat_mpdata][0][cnt_mpdata] = mat_global_mpdata[intmat_mpdata][0][cnt_mpdata]
-                strain_matrix[intmat_mpdata][0][cnt_mpdata,:,:] = strain_matrix_mpdata[intmat_mpdata][0][cnt_mpdata,:,:]
-                strain_matrixs[intmat_mpdata][0][cnt_mpdata,:,:] = strain_matrixs_mpdata[intmat_mpdata][0][cnt_mpdata,:,:]
-                rotation_matrix[intmat_mpdata][0][cnt_mpdata,:,:] = rotation_matrix_mpdata[intmat_mpdata][0][cnt_mpdata,:,:]
-                col[intmat_mpdata][0][cnt_mpdata,:] = col_mpdata[intmat_mpdata][0][cnt_mpdata,:]
-                colx[intmat_mpdata][0][cnt_mpdata,:] = colx_mpdata[intmat_mpdata][0][cnt_mpdata,:]
-                coly[intmat_mpdata][0][cnt_mpdata,:] = coly_mpdata[intmat_mpdata][0][cnt_mpdata,:]
-                match_rate[intmat_mpdata][0][cnt_mpdata] = match_rate_mpdata[intmat_mpdata][0][cnt_mpdata]
-                spots_len[intmat_mpdata][0][cnt_mpdata] = spots_len_mpdata[intmat_mpdata][0][cnt_mpdata]
-                iR_pix[intmat_mpdata][0][cnt_mpdata] = iR_pixel_mpdata[intmat_mpdata][0][cnt_mpdata]
-                fR_pix[intmat_mpdata][0][cnt_mpdata] = fR_pixel_mpdata[intmat_mpdata][0][cnt_mpdata]
-                best_match[intmat_mpdata][0][cnt_mpdata] = best_match_mpdata[intmat_mpdata][0][cnt_mpdata]
+    #% Launch multiprocessing prediction     
+    if 1:
+        args = zip(valu12)
+        with multiprocessing.Pool(ncpu) as pool:
+            results = pool.starmap(new_MP_multimat_function, tqdm(args, total=len(valu12)))
+            
+            for r in results:
+                r_message_mpdata = r
+                strain_matrix_mpdata, strain_matrixs_mpdata, rotation_matrix_mpdata, col_mpdata,\
+                colx_mpdata, coly_mpdata, match_rate_mpdata, mat_global_mpdata,\
+                    cnt_mpdata, meta_mpdata, files_treated_mpdata, spots_len_mpdata, \
+                        iR_pixel_mpdata, fR_pixel_mpdata, best_match_mpdata, check_mpdata = r_message_mpdata
+        
+                for i_mpdata in files_treated_mpdata:
+                    files_treated.append(i_mpdata)
+        
+                for intmat_mpdata in range(int(ubmat)):
+                    check[cnt_mpdata,intmat_mpdata] = check_mpdata[cnt_mpdata,intmat_mpdata]
+                    mat_global[intmat_mpdata][0][cnt_mpdata] = mat_global_mpdata[intmat_mpdata][0][cnt_mpdata]
+                    strain_matrix[intmat_mpdata][0][cnt_mpdata,:,:] = strain_matrix_mpdata[intmat_mpdata][0][cnt_mpdata,:,:]
+                    strain_matrixs[intmat_mpdata][0][cnt_mpdata,:,:] = strain_matrixs_mpdata[intmat_mpdata][0][cnt_mpdata,:,:]
+                    rotation_matrix[intmat_mpdata][0][cnt_mpdata,:,:] = rotation_matrix_mpdata[intmat_mpdata][0][cnt_mpdata,:,:]
+                    col[intmat_mpdata][0][cnt_mpdata,:] = col_mpdata[intmat_mpdata][0][cnt_mpdata,:]
+                    colx[intmat_mpdata][0][cnt_mpdata,:] = colx_mpdata[intmat_mpdata][0][cnt_mpdata,:]
+                    coly[intmat_mpdata][0][cnt_mpdata,:] = coly_mpdata[intmat_mpdata][0][cnt_mpdata,:]
+                    match_rate[intmat_mpdata][0][cnt_mpdata] = match_rate_mpdata[intmat_mpdata][0][cnt_mpdata]
+                    spots_len[intmat_mpdata][0][cnt_mpdata] = spots_len_mpdata[intmat_mpdata][0][cnt_mpdata]
+                    iR_pix[intmat_mpdata][0][cnt_mpdata] = iR_pixel_mpdata[intmat_mpdata][0][cnt_mpdata]
+                    fR_pix[intmat_mpdata][0][cnt_mpdata] = fR_pixel_mpdata[intmat_mpdata][0][cnt_mpdata]
+                    best_match[intmat_mpdata][0][cnt_mpdata] = best_match_mpdata[intmat_mpdata][0][cnt_mpdata]
                 
-    #%% Save results
-    save_directory_ = filenameDirec+"//results_"+prefix_mat+"_"+c_time
-    if not os.path.exists(save_directory_):
-        os.makedirs(save_directory_)
-        
-    ## intermediate saving of pickle objects with results
-    with open(save_directory_+ "//results.pickle", "wb") as output_file:
-            cPickle.dump([best_match, mat_global, rotation_matrix, strain_matrix, 
-                          strain_matrixs, col, colx, coly, match_rate, files_treated,
-                          lim_x, lim_y, spots_len, iR_pix, fR_pix,
-                          material_, lattice_material,
-                          symmetry, crystal], output_file)
-    print("data saved in ", save_directory_)
+        #% Save results
+        save_directory_ = filenameDirec+"//results_"+prefix_mat+"_"+c_time
+        if not os.path.exists(save_directory_):
+            os.makedirs(save_directory_)
+            
+        ## intermediate saving of pickle objects with results
+        with open(save_directory_+ "//results.pickle", "wb") as output_file:
+                cPickle.dump([best_match, mat_global, rotation_matrix, strain_matrix, 
+                              strain_matrixs, col, colx, coly, match_rate, files_treated,
+                              lim_x, lim_y, spots_len, iR_pix, fR_pix,
+                              material_, lattice_material,
+                              symmetry, crystal], output_file)
+        print("data saved in ", save_directory_)
 
+        try:
+            global_plots_MM(lim_x, lim_y, rotation_matrix, strain_matrix, strain_matrixs, 
+                         col, colx, coly, match_rate, mat_global, spots_len, 
+                         iR_pix, fR_pix, save_directory_, material_,
+                         match_rate_threshold=5, bins=30)
+        except:
+            print("Error in the global plots module")

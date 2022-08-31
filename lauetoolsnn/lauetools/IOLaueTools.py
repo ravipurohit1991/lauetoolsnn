@@ -95,7 +95,7 @@ def writefile_cor(prefixfilename, twicetheta, chi, data_x, data_y, dataintensity
         format_string += "   %d"
         list_of_data += [data_sat]
     if data_props:
-        print('preparing spots props "list_of_data"')
+        # print('preparing spots props "list_of_data"')
         data_peaks, columnnames = data_props
         for k in range(len(columnnames)):
             firstline += " %s" % columnnames[k]
@@ -111,7 +111,7 @@ def writefile_cor(prefixfilename, twicetheta, chi, data_x, data_y, dataintensity
 
     if sortedexit:
         # to write in decreasing order of intensity (col intensity =4)
-        print("rearranging exp. spots order according to intensity")
+        # print("rearranging exp. spots order according to intensity")
         arraydata = np.array(list_of_data).T
         s_ix = np.argsort(arraydata[:, 4])[::-1]
 

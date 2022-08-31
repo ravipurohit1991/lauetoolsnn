@@ -207,7 +207,6 @@ def calc_uflab(xcam, ycam, detectorplaneparameters, offset=0, returnAngles=1, ve
     nIMlab = 1.0 * np.sqrt(xM ** 2 + yM ** 2 + zM ** 2)
 
     # print transpose(array([xM,yM,zM])) # vector joining source and pt on CCD in abs frame
-    # print nIMlab #distance source pt on CCD (mm)
 
     uflab = np.transpose(np.array([xM, yM, zM]) / nIMlab)
 
@@ -221,7 +220,7 @@ def calc_uflab(xcam, ycam, detectorplaneparameters, offset=0, returnAngles=1, ve
 
         ufprime = 1.0 * IpMlab / normedIpM
 
-        print("ufprime, uflab with source offset", ufprime)
+        # print("ufprime, uflab with source offset", ufprime)
 
         uflab = ufprime
 

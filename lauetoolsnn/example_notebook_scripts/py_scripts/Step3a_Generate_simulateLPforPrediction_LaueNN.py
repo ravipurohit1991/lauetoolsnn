@@ -57,8 +57,8 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
                     "emin" : 5,                    ## Minimum and maximum energy to use for simulating Laue Patterns
                     "emax" : 22,
                     "grains_max" : 5,              ## Maximum number of grains to simulate (randomly generate between 1 and grains_max parameters)
-                    "grid_size_x" : 25,            ## Grid X and Y limit to generate the simulated dataset (a rectangular scan region)
-                    "grid_size_y" : 25,
+                    "grid_size_x" : 5,            ## Grid X and Y limit to generate the simulated dataset (a rectangular scan region)
+                    "grid_size_y" : 5,
                     }
     generate_config_file_GUI = True
     
@@ -162,14 +162,7 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
                     "xbet":dict_detector[3], 
                     "xgam":dict_detector[4],
                     "pixelsize": pixelsize}
-        
-        # if np.any(s_posx < 0):
-        #     print("Pixel X is neagtive for file "+prefix1+"_"+str(ii))
-        #     # print(g)
-        # elif np.any(s_posy < 0):
-        #     print("Pixel Y is neagtive for file "+prefix1+"_"+str(ii))
-        #     # print(g)
-            
+
         IOLT.writefile_cor(save_directory_sim_data+"//"+prefix1+"_"+str(ii), s_tth, s_chi, s_posx, s_posy, s_I,
                            param=CCDcalib, sortedexit=0)    
         

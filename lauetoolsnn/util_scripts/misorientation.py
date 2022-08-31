@@ -298,6 +298,55 @@ print(orientation)
 
 [[-0.209421479191001, -0.97770818155381,   0.015144496564611],[ 0.676758371367223, -0.230793835796587,  0.699093922261295],[ 0.952674972306491,  0.042875525306998, -0.300951967048689]]
 
+#%% Convert Euler angles to rotation matrix and then compute their equivalent suymmetries and convert back to Euler angles
+
+from scipy.spatial.transform import Rotation as R
+
+def rot_mat_to_euler(rot_mat): 
+    r = R.from_matrix(rot_mat)
+    return r.as_euler('zxz')* 180/np.pi
+
+def OrientationMatrix2Euler(g):
+    """
+    Compute the Euler angles from the orientation matrix.
+    This conversion follows the paper of Rowenhorst et al. :cite:`Rowenhorst2015`.
+    In particular when :math:`g_{33} = 1` within the machine precision,
+    there is no way to determine the values of :math:`\phi_1` and :math:`\phi_2`
+    (only their sum is defined). The convention is to attribute
+    the entire angle to :math:`\phi_1` and set :math:`\phi_2` to zero.
+    :param g: The 3x3 orientation matrix
+    :return: The 3 euler angles in degrees.
+    """
+    eps = np.finfo('float').eps
+    (phi1, Phi, phi2) = (0.0, 0.0, 0.0)
+    # treat special case where g[2, 2] = 1
+    if np.abs(g[2, 2]) >= 1 - eps:
+        if g[2, 2] > 0.0:
+            phi1 = np.arctan2(g[0][1], g[0][0])
+        else:
+            phi1 = -np.arctan2(-g[0][1], g[0][0])
+            Phi = np.pi
+    else:
+        Phi = np.arccos(g[2][2])
+        zeta = 1.0 / np.sqrt(1.0 - g[2][2] ** 2)
+        phi1 = np.arctan2(g[2][0] * zeta, -g[2][1] * zeta)
+        phi2 = np.arctan2(g[0][2] * zeta, g[1][2] * zeta)
+    # ensure angles are in the range [0, 2*pi]
+    if phi1 < 0.0:
+        phi1 += 2 * np.pi
+    if Phi < 0.0:
+        Phi += 2 * np.pi
+    if phi2 < 0.0:
+        phi2 += 2 * np.pi
+    return np.degrees([phi2, Phi, phi1])
+
+euler_ang = 96.61, 90.29, 185.24
+
+
+
+
+
+
 
 
 
