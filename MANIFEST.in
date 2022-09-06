@@ -9,11 +9,13 @@ include lauetoolsnn/*.ini
 
 include lauetoolsnn/examples/ZnCUOCl/*.py
 include lauetoolsnn/examples/ZnCUOCl/*.txt
+include lauetoolsnn/examples/ZnCUOCl/*.lauenn
 include lauetoolsnn/examples/ZnCUOCl/*.det
 include lauetoolsnn/examples/ZnCUOCl/*.tif
 
 include lauetoolsnn/examples/GaN_Si/*.py
 include lauetoolsnn/examples/GaN_Si/*.txt
+include lauetoolsnn/examples/GaN_Si/*.lauenn
 include lauetoolsnn/examples/GaN_Si/*.det
 include lauetoolsnn/examples/GaN_Si/*.tif
 
@@ -22,7 +24,8 @@ include lauetoolsnn/multi_mat_LaueNN/*.md
 
 include lauetoolsnn/example_notebook_scripts/*.ipynb
 include lauetoolsnn/example_notebook_scripts/*.md
-#include lauetoolsnn/example_notebook_scripts/py_scripts/*.py
+include lauetoolsnn/example_notebook_scripts/py_scripts/*.py
+include lauetoolsnn/example_notebook_scripts/automated_script/*.py
 
 include lauetoolsnn/util_scripts/*.py
 include lauetoolsnn/util_scripts/*.m

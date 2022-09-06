@@ -416,7 +416,13 @@ if __name__ == "__main__":
         save_directory_ = filenameDirec+"//results_"+prefix_mat+"_"+c_time
         if not os.path.exists(save_directory_):
             os.makedirs(save_directory_)
-            
+        
+        ## intermediate saving of pickle objects with results
+        np.savez_compressed(save_directory_+ "//results.npz", 
+                            best_match, mat_global, rotation_matrix, strain_matrix, 
+                            strain_matrixs, col, colx, coly, match_rate, files_treated,
+                            lim_x, lim_y, spots_len, iR_pix, fR_pix,
+                            material_)
         ## intermediate saving of pickle objects with results
         with open(save_directory_+ "//results.pickle", "wb") as output_file:
                 cPickle.dump([best_match, mat_global, rotation_matrix, strain_matrix, 

@@ -115,7 +115,16 @@ def ApplyExtinctionrules(HKL, Extinc, verbose=0):
         c00l = (H == 0) * (K == 0) * (L % 2 != 0)
         cond = c0kl+ ch0l + chk0 + ch00 + c0k0 + c00l
         array_hkl = np.delete(array_hkl_1, np.where(cond == True)[0], axis=0)
-
+    elif Extinc == "SG62":
+        # general existence conditions for any h k l (take!)
+        # general existence conditions for specific cases h k l (delete!)
+        c0kl = (H == 0) * ((K+L) % 2 != 0)
+        chk0 = (L == 0) * (H % 2 != 0)
+        ch00 = (K == 0) * (L == 0) * (H % 2 != 0)
+        c0k0 = (H == 0) * (L == 0) * (K % 2 != 0)
+        c00l = (H == 0) * (K == 0) * (L % 2 != 0)
+        cond = c0kl + chk0 + ch00 + c0k0 + c00l
+        array_hkl = np.delete(HKL, np.where(cond == True)[0], axis=0)
     elif Extinc == "Ti2AlN":
         # wurtzite condition
         condfirst = (H == K) * ((L % 2) != 0)

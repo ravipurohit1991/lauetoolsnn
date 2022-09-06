@@ -618,7 +618,7 @@ def generate_classHKL(n, rules, lattice_material, symmetry, material_, crystal=N
 
     temp_ = GT.threeindices_up_to(int(n))
     
-    if mat_listHKl != None:
+    if np.all(mat_listHKl != None):
         mat_listHKl = np.array(mat_listHKl)
         temp_ = np.vstack((temp_, mat_listHKl))
         
@@ -632,7 +632,7 @@ def generate_classHKL(n, rules, lattice_material, symmetry, material_, crystal=N
         write_to_console("Generating HKL objects")
         
     # generate HKL object
-    if progress !=None:
+    if progress != None:
         progress.setMaximum(len(classhkl_))
         
     hkl_all = {}
@@ -701,36 +701,36 @@ def generate_classHKL(n, rules, lattice_material, symmetry, material_, crystal=N
         step=0.1
     
     # =============================================================================
-    #     #Verify if two hkl normal are same
+    #     #Verify if two hkl normal are same and yes then pop them from the list
     # =============================================================================
-    # codebars, angbins = get_material_data(material_ = material_, ang_maxx = ang_maxx, step = step,
-    #                                            hkl_ref=n, classhkl=classhkl)
-    # if write_to_console !=None:
-    #     write_to_console("Verifying if two different HKL class have same angular distribution (can be very time consuming depending on the symmetry)")
-    # list_appended = []
-    # list_remove = []
-    # for i, j in enumerate(codebars):
-    #     for k, l in enumerate(codebars):
-    #         # if i in list_appended and k in list_appended:
-    #         #     continue
-    #         if i != k and np.all(j == l):
-    #             # string0 = "HKL's "+ str(classhkl[i])+" and "+str(classhkl[k])+" have exactly the same angular distribution."
-    #             # if write_to_console !=None:
-    #             #     write_to_console(string0)
-    #             if keys_rmv[i] in list_remove or keys_rmv[k] in list_remove:
-    #                 if write_to_console !=None:
-    #                     continue
-    #                     # write_to_console("list already added")                        
-    #             else:
-    #                 list_remove.append(keys_rmv[i])
-    #                 ind_rmv.append(keys_rmv[i])
-    #                 for ijk in hkl_all[keys_rmv[i]]['family']:
-    #                     hkl_all[keys_rmv[k]]['family'].append(ijk)
-    #         list_appended.append(i)
-    #         list_appended.append(k)
-    # if len(list_remove) != 0:
-    #     for inrmv in list_remove:
-    #         _ = hkl_all.pop(inrmv, None)
+    codebars, angbins = get_material_data(material_ = material_, ang_maxx = ang_maxx, step = step,
+                                                hkl_ref=n, classhkl=classhkl)
+    if write_to_console !=None:
+        write_to_console("Verifying if two different HKL class have same angular distribution (can be very time consuming depending on the symmetry)")
+    list_appended = []
+    list_remove = []
+    for i, j in enumerate(codebars):
+        for k, l in enumerate(codebars):
+            # if i in list_appended and k in list_appended:
+            #     continue
+            if i != k and np.all(j == l):
+                # string0 = "HKL's "+ str(classhkl[i])+" and "+str(classhkl[k])+" have exactly the same angular distribution."
+                # if write_to_console !=None:
+                #     write_to_console(string0)
+                if keys_rmv[i] in list_remove or keys_rmv[k] in list_remove:
+                    if write_to_console !=None:
+                        # write_to_console("list already added")     
+                        continue
+                else:
+                    list_remove.append(keys_rmv[i])
+                    ind_rmv.append(keys_rmv[i])
+                    for ijk in hkl_all[keys_rmv[i]]['family']:
+                        hkl_all[keys_rmv[k]]['family'].append(ijk)
+            list_appended.append(i)
+            list_appended.append(k)
+    if len(list_remove) != 0:
+        for inrmv in list_remove:
+            _ = hkl_all.pop(inrmv, None)
             
     if write_to_console !=None:
         write_to_console("Finalizing the HKL objects")
@@ -1048,31 +1048,19 @@ def getpatterns_(nb, nb1, material_=None, material1_=None, emin=5, emax=23, dete
                 delete_spots.append(j)
                 continue
             
-            if mat0_listHKl == None:
+            continueloop = False
+            if np.all(mat0_listHKl == None):
                 if np.any(np.abs(new_hkl)>max_millerindex):
                     skip_hkl.append(j)
-                    continue
+                    continueloop = True
             else:
-                print("Not implemented part of function accessed; line 1058 in utils_lauenn.py")
-                #TODO rubbish, have to fix in a better way
-                # for ih, ik, il in mat0_listHKl:
-                #     new_hkl1 = _round_indices(i[:3])
-                #     conda= new_hkl[0]==ih
-                #     condb= new_hkl[1]==ik
-                #     condc= new_hkl[2]==il
-                #     indd123 = np.where(conda*condb*condc == True)[0]
-                #     if len(indd123) == 0:
-                #         print("Demanded HKL not found;",ih,ik,il)
-                #         continue
-                #     for ihkl in indd123:
-                #         if ihkl in all_common[:,0]:
-                #             inind = np.where(all_common[:,0]==ihkl)[0]
-                #             print("Demanded hkl",ih,ik,il," has the following occurance",all_common[inind,1])
-                #             to_add = (all_common[inind,0][0], all_common[inind,1][0])
-                #             if to_add not in most_common0:
-                #                 most_common0.append(to_add)    
+                temp_ = np.all(new_hkl == normal_hkl, axis=1)  
+                if len(np.where(temp_)[0]) == 0:
+                    skip_hkl.append(j)
+                    continueloop = True  
                 
-                
+            if continueloop:
+                continue
                 
             temp_ = np.all(new_hkl == normal_hkl, axis=1)
             if len(np.where(temp_)[0]) == 1:
@@ -1109,30 +1097,20 @@ def getpatterns_(nb, nb1, material_=None, material1_=None, emin=5, emax=23, dete
                 delete_spots.append(j)
                 continue
             
-            if mat1_listHKl == None:
+            continueloop = False
+            if np.all(mat1_listHKl == None):
                 if np.any(np.abs(new_hkl)>max_millerindex1):
                     skip_hkl.append(j)
-                    continue
+                    continueloop = True
             else:
-                print("Not implemented part of function accessed; line 1119 in utils_lauenn.py")
-                #TODO rubbish, have to fix in a better way
-                # for ih, ik, il in mat1_listHKl:
-                #     new_hkl1 = _round_indices(i[:3])
-                #     conda= new_hkl[0]==ih
-                #     condb= new_hkl[1]==ik
-                #     condc= new_hkl[2]==il
-                #     indd123 = np.where(conda*condb*condc == True)[0]
-                #     if len(indd123) == 0:
-                #         print("Demanded HKL not found;",ih,ik,il)
-                #         continue
-                #     for ihkl in indd123:
-                #         if ihkl in all_common[:,0]:
-                #             inind = np.where(all_common[:,0]==ihkl)[0]
-                #             print("Demanded hkl",ih,ik,il," has the following occurance",all_common[inind,1])
-                #             to_add = (all_common[inind,0][0], all_common[inind,1][0])
-                #             if to_add not in most_common0:
-                #                 most_common0.append(to_add)    
-                                
+                temp_ = np.all(new_hkl == normal_hkl1, axis=1)  
+                if len(np.where(temp_)[0]) == 0:
+                    skip_hkl.append(j)
+                    continueloop = True
+                    
+            if continueloop:
+                continue
+                   
             temp_ = np.all(new_hkl == normal_hkl1, axis=1)
             if len(np.where(temp_)[0]) == 1:
                 ind_ = np.where(temp_)[0][0]
@@ -5173,7 +5151,6 @@ class Symmetry(enum.Enum):
     trigonal = 'bar3m'
     monoclinic = '2/m'
     triclinic = 'bar1'
-    # operation_rotation = None
     
     def symmetry_operators(self, use_miller_bravais=False):
         """Define the equivalent crystal symmetries.
@@ -5261,7 +5238,7 @@ class Symmetry(enum.Enum):
             sym[5] = np.array([[-1., 0., 0.], [0., 1., 0.], [0., 0., -1.]])
             sym[6] = np.array([[0., 1., 0.], [1., 0., 0.], [0., 0., -1.]])
             sym[7] = np.array([[0., -1., 0.], [-1., 0., 0.], [0., 0., -1.]])
-        elif self is Symmetry.monoclinic:
+        elif self is Symmetry.monoclinic: 
             sym = np.zeros((4, 3, 3), dtype=np.float)
             sym[0] = np.array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]])
             sym[1] = np.array([[-1., 0., 0.], [0., 1., 0.], [0., 0., -1.]])
@@ -9545,8 +9522,8 @@ def _round_indices(indices, max_index=12):
         Integer array of rounded set of index triplet(s) or quartet(s).
     """
     
-    if np.max(np.abs(indices)) > max_index:
-        max_index = int(np.max(np.abs(indices)))
+    if np.max(np.abs(indices)) >= max_index:
+        max_index = int(np.max(np.abs(indices)))+1
     
     # Allow list and tuple input (and don't overwrite `indices`)
     idx = np.asarray(indices)
@@ -9699,7 +9676,7 @@ def generate_dataset(material_="Cu", material1_="Cu", ang_maxx=18.,step=0.1, mod
                          write_to_console=None, emin=5, emax=22, modelp = "random",
                          misorientation_angle = None, general_diff_rules = False, 
                          crystal = None, crystal1 = None, include_scm=False, 
-                         matrix_phase_always_present=None): 
+                         matrix_phase_always_present=None, mat_listHKl=None, mat_listHKl1=None): 
     """
     works for all symmetries now.
     """
@@ -9972,7 +9949,9 @@ def generate_dataset(material_="Cu", material1_="Cu", ang_maxx=18.,step=0.1, mod
                                 general_diff_rules,
                                 crystal, 
                                 crystal1,
-                                None])
+                                None,
+                                mat_listHKl,
+                                mat_listHKl1])
                 
                 if matrix_phase_always_present != None and \
                     type_ != "testing_data":
@@ -10009,7 +9988,9 @@ def generate_dataset(material_="Cu", material1_="Cu", ang_maxx=18.,step=0.1, mod
                                         general_diff_rules,
                                         crystal, 
                                         crystal1,
-                                        matrix_phase_always_present])
+                                        matrix_phase_always_present,
+                                        mat_listHKl,
+                                        mat_listHKl1])
 
                     elif key_material_new == material1_ and jj == 0:
                         values.append([ii, 0, material_,material1_,
@@ -10041,7 +10022,9 @@ def generate_dataset(material_="Cu", material1_="Cu", ang_maxx=18.,step=0.1, mod
                                         general_diff_rules,
                                         crystal, 
                                         crystal1,
-                                        matrix_phase_always_present])
+                                        matrix_phase_always_present,
+                                        mat_listHKl,
+                                        mat_listHKl1])
                 
         chunks = chunker_list(values, ncpu)
         chunks_mp = list(chunks)
@@ -10147,7 +10130,9 @@ def generate_dataset(material_="Cu", material1_="Cu", ang_maxx=18.,step=0.1, mod
                                 general_diff_rules,
                                 crystal, 
                                 crystal1,
-                                None])
+                                None,
+                                mat_listHKl,
+                                mat_listHKl1])
                 
                 if matrix_phase_always_present != None and \
                     type_ != "testing_data":
@@ -10180,7 +10165,9 @@ def generate_dataset(material_="Cu", material1_="Cu", ang_maxx=18.,step=0.1, mod
                                     general_diff_rules,
                                     crystal, 
                                     crystal1,
-                                    matrix_phase_always_present])
+                                    matrix_phase_always_present,
+                                    mat_listHKl,
+                                    mat_listHKl1])
                 
         chunks = chunker_list(values, ncpu)
         chunks_mp = list(chunks)
@@ -10243,7 +10230,9 @@ def generate_dataset(material_="Cu", material1_="Cu", ang_maxx=18.,step=0.1, mod
                                     general_diff_rules,
                                     crystal, 
                                     crystal1,
-                                    None])
+                                    None,
+                                    mat_listHKl,
+                                    mat_listHKl1])
             
             if material_ != material1_:
                 seednumber = np.random.randint(1e6)
@@ -10274,7 +10263,9 @@ def generate_dataset(material_="Cu", material1_="Cu", ang_maxx=18.,step=0.1, mod
                                     general_diff_rules,
                                     crystal, 
                                     crystal1,
-                                    None])
+                                    None,
+                                    mat_listHKl,
+                                    mat_listHKl1])
                 
                 ### include slightly misoriented two crystals of different materails
                 seednumber = np.random.randint(1e6)
@@ -10305,7 +10296,9 @@ def generate_dataset(material_="Cu", material1_="Cu", ang_maxx=18.,step=0.1, mod
                                     general_diff_rules,
                                     crystal, 
                                     crystal1,
-                                    None])
+                                    None,
+                                    mat_listHKl,
+                                    mat_listHKl1])
                 
         chunks = chunker_list(values, ncpu)
         chunks_mp = list(chunks)
@@ -10438,7 +10431,6 @@ def get_material_detail(material_=None, SG=None, symm_=None,
         crystal1 = None
         
     return rules, symmetry, lattice_material, crystal, SG, rules1, symmetry1, lattice_material1, crystal1, SG1
-
 
 def predict_preprocessMultiProcess(files, cnt, 
                                      rotation_matrix,strain_matrix,strain_matrixs,

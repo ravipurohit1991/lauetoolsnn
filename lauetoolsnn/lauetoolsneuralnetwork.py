@@ -10,20 +10,18 @@ Credits:
 Lattice and symmetry routines are extracted and adapted from the PYMICRO and Xrayutilities repository
 
 TODO:
-    1. HDF5 file format output instead of pickle --> better data handling (check out PYMICRO)
-    2. Notebook to post process the results (choice of bin width, data selectivity, etc...)
-    3. Dynamic Multi processing variables ?
-    4. Structure factor caluclation with xrayutilities
+    1. Dynamic Multi processing variables ? COMPLICATED
+    2. Structure factor calculation with xrayutilities
     
-    #TODO
+    # Optional TODO
     # Include a user defined list of HKLs to be included in the training dataset
     # Write a function that looks for pixels with no indexation having atleast 6 neighbors indexed
     # idea is to index with their rotation matrix ?
     # Also write a function to rearrange matricies of each pixel to have complete grain representation
-    
     # Auto save data
     # extract average UB from the list of UBs for a given MR threshold and run again the analysis
     # calculate similarity between top 100 intese peaks in similarity algorithm
+    # zoom without changing the image reshape
 """
 __author__ = "Ravi raj purohit PURUSHOTTAM RAJ PUROHIT, CRG-IF BM32 @ ESRF"
 
@@ -31,7 +29,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import logging
 logger = logging.getLogger()
@@ -350,7 +348,9 @@ class Window(QMainWindow):
         self.setDisplayText("New materials and extinction rules can be set in LaueTools DictLP file before launching this module")
         self.setDisplayText("For now the Learning rate of optimizer, Kernel and Bias weight Initializers are already optimized and set in the in-built model (can also be set to different values in the config window)"+\
                             " (TO find another set of parameters please use Hyper parameter optimization routine in GUI)")
-        self.setDisplayText("Load a config file first (for example see the example_config tab)")
+        self.setDisplayText("Load a config file first (for example see the example_config tab for template)")
+        self.setDisplayText("****Testing****")
+        self.setDisplayText("First installation ? In order to test all the functionality of the GUI, please run a example case from the example folder")
         self._formLayout() ## buttons and layout
         self.popups = []
         # self.showMaximized()
@@ -2243,6 +2243,7 @@ class Window(QMainWindow):
         self.write_to_console("Press Train network button to Train")
         self.train_nn.setEnabled(True)
         self.timermp.stop()
+        self.generate_nn.setEnabled(False)
         
     def train_neural_network(self,):
         self.status.showMessage("Neural network training in progress!")
@@ -2853,8 +2854,14 @@ class MyPopup_image_v1(QWidget):
             print("fitting peaks with LOG function of skimage")
             from skimage.feature import blob_log
             from skimage import morphology
-            import cv2
-
+            try:
+                import cv2
+            except:
+                print("OpenCv2 is not installed, cannot use the LOG peaksearch")
+                print("please install opencv2 to use this feature")
+                self.pix_x, self.pix_y = [], []
+                self.peakXY = []
+                
             try:
                 data_8bit_raw = plt.imread(self.file)
                 backgroundimage = ImProc.compute_autobackground_image(data_8bit_raw, boxsizefilter=10)

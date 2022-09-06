@@ -29,7 +29,13 @@ except:
     print("tensorflow not loaded; Training will not work")
     tensorflow_keras = False
 
-import h5py
+try:
+    import h5py
+except:
+    print("H5PY loading failed, prediction may not work")
+    print("Issue with conda's installation of H5py due to incompatibility between HDF5 and H5py package")
+    print("Please uninstall h5py with conda remove --force h5py")
+    print("And install via pip with pip install h5py, this should solve the issue")
 
 ## GPU Nvidia drivers needs to be installed! Ughh
 ## if wish to use only CPU set the value to -1 else set it to 0 for GPU

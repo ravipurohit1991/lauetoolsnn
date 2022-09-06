@@ -1,0 +1,63 @@
+{% set name = "lauetoolsnn" %}
+{% set version = "3.0.58" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/lauetoolsnn-{{ version }}.tar.gz
+  sha256: 9a80916e9fe533700bb59c3d0d30cbf452dd656db5f33eb0df457ab86f13eb90
+
+build:
+  entry_points:
+    - lauetoolsnn=lauetoolsnn.lauetoolsneuralnetwork:start
+    - lauenn=lauetoolsnn.lauetoolsneuralnetwork:start
+    - lauenn_addmat=lauetoolsnn.util_scripts.add_material:start
+    - lauenn_mat=lauetoolsnn.util_scripts.add_material:querymat
+  noarch: python
+  script: {{ PYTHON }} -m pip install --no-deps --ignore-installed . -vv
+  number: 0
+  osx_is_app: True
+
+requirements:
+  host:
+    - python >=3.6
+    - matplotlib-base
+    - keras
+    - scipy
+    - numpy
+    - h5py
+    - tensorflow
+    - pyqt
+    - scikit-learn
+    - fabio
+    - networkx
+    - scikit-image
+    - tqdm
+    - pip
+    - opencv 
+  run:
+    - python >=3.6
+    - matplotlib-base >=3.4.2
+    - keras >=2.7.0
+    - scipy >=1.7.0
+    - numpy >=1.18.5
+    - h5py >=3.5.0
+    - tensorflow >=2.7.0
+    - pyqt >=5.9
+    - scikit-learn >=0.24.2
+    - fabio >=0.11.0
+    - networkx >=2.6.3
+    - scikit-image >=0.18.0
+    - tqdm >=4.60.0
+    - opencv >=4.5.0
+
+about:
+  home: https://github.com/ravipurohit1991/lauetoolsnn
+  summary: LaueNN- neural network training and prediction routine to index single and polycrystalline Laue diffraction patterns
+  license: MIT
+
+extra:
+  recipe-maintainers:
+    - ravipurohit
