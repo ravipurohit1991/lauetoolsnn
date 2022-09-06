@@ -1,7 +1,7 @@
 # lauetoolsnn
 A feed-forward neural network (FFNN) model to predict the HKL in single/multi-grain/multi-phase Laue patterns with high efficiency and accuracy is introduced. 
 
-Version 3.0.57
+Version 3.0.58
 ### Video tutorial
 
 - Video 1: Working with jupyter notebook scripts : https://cloud.esrf.fr/s/6q4DJfAn7K46BGN
@@ -22,12 +22,17 @@ Version 3.0.57
 - networkx (to be replaced with numpy in the future)
 - scikit-image (used for hough based analysis of Laue patterns)
 - tqdm (required only for notebook scripts)
+- opencv (for LOG based peak search)
 
 ### Installation
 Lauetoolsnn can be installed either via PYPI usiing the following command in terminal (this installs all dependencies automatically): 
 https://pypi.org/project/lauetoolsnn/
+https://anaconda.org/bm32esrf/lauetoolsnn
+
 ``` bash
 $ pip install lauetoolsnn
+$ or
+$conda install -c bm32esrf lauetoolsnn -c conda-forge
 ```
 
 or can be compiled and installed locally via the setup.py file. Download the Github repository and type the following in terminal. In this case, the dependencies has to be installed manually. The latest version of each dependency works as of (01/04/2022).
