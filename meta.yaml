@@ -1,5 +1,5 @@
 {% set name = "lauetoolsnn" %}
-{% set version = "3.0.58" %}
+{% set version = "3.0.59" %}
 
 package:
   name: {{ name|lower }}
