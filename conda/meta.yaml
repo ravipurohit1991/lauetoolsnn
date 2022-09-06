@@ -1,5 +1,5 @@
 {% set name = "lauetoolsnn" %}
-{% set version = "3.0.58" %}
+{% set version = "3.0.59" %}
 
 package:
   name: {{ name|lower }}
@@ -23,20 +23,7 @@ build:
 requirements:
   host:
     - python >=3.6
-    - matplotlib-base
-    - keras
-    - scipy
-    - numpy
-    - h5py
-    - tensorflow
-    - pyqt
-    - scikit-learn
-    - fabio
-    - networkx
-    - scikit-image
-    - tqdm
     - pip
-    - opencv 
   run:
     - python >=3.6
     - matplotlib-base >=3.4.2
@@ -53,6 +40,22 @@ requirements:
     - tqdm >=4.60.0
     - opencv >=4.5.0
 
+test:
+  imports:
+    - lauetoolsnn
+    - keras
+    - scipy
+    - numpy
+    - h5py
+    - tensorflow
+    - PyQt5
+    - sklearn
+    - skimage
+    - fabio
+    - networkx
+    - tqdm
+    - cv2
+    
 about:
   home: https://github.com/ravipurohit1991/lauetoolsnn
   summary: LaueNN- neural network training and prediction routine to index single and polycrystalline Laue diffraction patterns
