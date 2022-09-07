@@ -5,6 +5,8 @@ include icon.png
 include conda/*.yaml
 include conda/*.png
 
+include tests/*.py
+
 include lauetoolsnn/*.py
 include lauetoolsnn/*.txt
 include lauetoolsnn/*.png
