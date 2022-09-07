@@ -1,28 +1,28 @@
 {% set name = "lauetoolsnn" %}
-{% set version = "3.0.59" %}
+{% set data = load_setup_py_data() %}
 
 package:
   name: {{ name|lower }}
-  version: {{ version }}
+  version: {{ data['version'] }}
 
 source:
-  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/lauetoolsnn-{{ version }}.tar.gz
-  sha256: c4a2cf72e1bd6f2bdaeb57e297ade534aff0b6726da47a3280784969c9fcd193
+  path: ..
 
 build:
   entry_points:
-    - lauetoolsnn=lauetoolsnn.lauetoolsneuralnetwork:start
-    - lauenn=lauetoolsnn.lauetoolsneuralnetwork:start
-    - lauenn_addmat=lauetoolsnn.util_scripts.add_material:start
-    - lauenn_mat=lauetoolsnn.util_scripts.add_material:querymat
-  noarch: python
-  script: {{ PYTHON }} -m pip install . -vv
+    {% for entry_point in data['entry_points']['console_scripts'] %}
+    - {{ entry_point }}
+    {% endfor %}
+  script: python -m pip install --no-deps --ignore-installed .
   number: 0
-  osx_is_app: True
 
 requirements:
+  build:
+    - python
+    - pip
+    - setuptools
   host:
-    - python >=3.6
+    - python
     - matplotlib-base
     - keras
     - scipy
@@ -67,9 +67,9 @@ test:
     - tqdm
     
 about:
-  home: https://github.com/ravipurohit1991/lauetoolsnn
-  summary: LaueNN- neural network training and prediction routine to index single and polycrystalline Laue diffraction patterns
-  license: MIT
+  home: {{ data['url'] }}
+  license: {{ data['license'] }}
+  summary: {{ data['description'] }}
 
 app:
   entry: lauetoolsnn
