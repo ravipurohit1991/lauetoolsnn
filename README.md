@@ -1,4 +1,3 @@
-|Build Status| |Appveyor Status| |myBinder Launcher| |RTD docs| |Zenodo DOI|
 
 # lauetoolsnn
 A feed-forward neural network (FFNN) model to predict the HKL in single/multi-grain/multi-phase Laue patterns with high efficiency and accuracy is introduced. 
