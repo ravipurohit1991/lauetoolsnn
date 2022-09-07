@@ -2,22 +2,42 @@
 ## testing of GUI to be done after installation manually with example case
 import pytest
 
-import lauetoolsnn
 import keras
+print("Keras passed import")
+
 import scipy
+print("scipy passed import")
+
 import numpy
+print("numpy passed import")
+
 import h5py
+print("h5py passed import")
+
 import tensorflow
+print("tensorflow passed import")
+
 import PyQt5
+print("PyQt5 passed import")
+
 import sklearn
+print("sklearn passed import")
+
 import skimage
+print("skimage passed import")
+
 import fabio
+print("fabio passed import")
+
 import networkx
+print("networkx passed import")
+
 import tqdm
+print("tqdm passed import")
+
 
 import pkg_resources
 
-print("Lauetoolsnn :", pkg_resources.require("lauetoolsnn")[0].version)
 print("scipy :", pkg_resources.require("scipy")[0].version)
 print("numpy :", pkg_resources.require("numpy")[0].version)
 print("h5py :", pkg_resources.require("h5py")[0].version)
