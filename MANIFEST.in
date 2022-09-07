@@ -1,5 +1,9 @@
 include README.md
 include LICENSE
+include icon.png
+
+include conda/*.yaml
+include conda/*.png
 
 include lauetoolsnn/*.py
 include lauetoolsnn/*.txt

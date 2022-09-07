@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/lauetoolsnn-{{ version }}.tar.gz
-  sha256: 9a80916e9fe533700bb59c3d0d30cbf452dd656db5f33eb0df457ab86f13eb90
+  sha256: c4a2cf72e1bd6f2bdaeb57e297ade534aff0b6726da47a3280784969c9fcd193
 
 build:
   entry_points:
@@ -16,13 +16,25 @@ build:
     - lauenn_addmat=lauetoolsnn.util_scripts.add_material:start
     - lauenn_mat=lauetoolsnn.util_scripts.add_material:querymat
   noarch: python
-  script: {{ PYTHON }} -m pip install --no-deps --ignore-installed . -vv
+  script: {{ PYTHON }} -m pip install . -vv
   number: 0
   osx_is_app: True
 
 requirements:
   host:
     - python >=3.6
+    - matplotlib-base
+    - keras
+    - scipy
+    - numpy
+    - h5py
+    - tensorflow
+    - pyqt
+    - scikit-learn
+    - fabio
+    - networkx
+    - scikit-image
+    - tqdm
     - pip
   run:
     - python >=3.6
@@ -30,7 +42,7 @@ requirements:
     - keras >=2.7.0
     - scipy >=1.7.0
     - numpy >=1.18.5
-    - h5py >=3.5.0
+    - h5py >=3.1
     - tensorflow >=2.7.0
     - pyqt >=5.9
     - scikit-learn >=0.24.2
@@ -38,7 +50,6 @@ requirements:
     - networkx >=2.6.3
     - scikit-image >=0.18.0
     - tqdm >=4.60.0
-    - opencv >=4.5.0
 
 test:
   imports:
@@ -54,13 +65,18 @@ test:
     - fabio
     - networkx
     - tqdm
-    - cv2
     
 about:
   home: https://github.com/ravipurohit1991/lauetoolsnn
   summary: LaueNN- neural network training and prediction routine to index single and polycrystalline Laue diffraction patterns
   license: MIT
 
+app:
+  entry: lauetoolsnn
+  icon: icon.png
+  summary:  "Neural network workflow for indexation of Laue patterns"
+  type: desk
+  
 extra:
   recipe-maintainers:
     - ravipurohit
