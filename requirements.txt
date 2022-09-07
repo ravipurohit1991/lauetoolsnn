@@ -1,4 +1,4 @@
-matplotlib==3.5.1
+matplotlib
 Keras
 numpy
 h5py
