@@ -1,6 +1,6 @@
 
 
-![GitHub CI](https://github.com/ravipurohit1991/lauetoolsnn/.github/workflows/python-package.yml/badge.svg)
+![GitHub CI](https://github.com/ravipurohit1991/lauetoolsnn/action/workflows/python-package.yml/badge.svg)
 # lauetoolsnn
 A feed-forward neural network (FFNN) model to predict the HKL in single/multi-grain/multi-phase Laue patterns with high efficiency and accuracy is introduced. 
 
