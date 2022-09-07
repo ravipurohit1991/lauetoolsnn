@@ -1,6 +1,6 @@
 ## as of now only test imports
 ## testing of GUI to be done after installation manually with example case
-import pytest
+# import pytest
 
 import keras
 print("Keras passed import")
@@ -44,8 +44,8 @@ print("h5py :", pkg_resources.require("h5py")[0].version)
 print("keras :", pkg_resources.require("keras")[0].version)
 print("tensorflow :", pkg_resources.require("tensorflow")[0].version)
 print("PyQt5 :", pkg_resources.require("PyQt5")[0].version)
-print("sklearn :", pkg_resources.require("sklearn")[0].version)
-print("skimage :", pkg_resources.require("skimage")[0].version)
+print("sklearn :", pkg_resources.require("scikit-learn")[0].version)
+print("skimage :", pkg_resources.require("scikit-image")[0].version)
 print("fabio :", pkg_resources.require("fabio")[0].version)
 print("networkx :", pkg_resources.require("networkx")[0].version)
 print("tqdm :", pkg_resources.require("tqdm")[0].version)
