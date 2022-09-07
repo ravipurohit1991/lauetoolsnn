@@ -358,16 +358,16 @@ def fit_on_demand_calibration(starting_param, miller, allparameters,
     #All miller indices must be entered in miller,
     selection is done in xy_from_Quat with nspots (array of indices)
     """
-    parameters = ["distance (mm)",
-                "Xcen (pixel)",
-                "Ycen (pixel)",
-                "Angle1 (deg)",
-                "Angle2 (deg)",
-                "theta1",
-                "theta2",
-                "theta3"]
+    # parameters = ["distance (mm)",
+    #             "Xcen (pixel)",
+    #             "Ycen (pixel)",
+    #             "Angle1 (deg)",
+    #             "Angle2 (deg)",
+    #             "theta1",
+    #             "theta2",
+    #             "theta3"]
 
-    parameters_being_fitted = [parameters[k] for k in arr_indexvaryingparameters]
+    # parameters_being_fitted = [parameters[k] for k in arr_indexvaryingparameters]
     param_calib_0 = starting_param
     if verbose:
         # print(
@@ -732,7 +732,7 @@ def error_function_strain_with_two_orientations(param_strain, DATA_Q, allparamet
                                         pixelsize=pixelsize,
                                         dim=dim)
 
-    distanceterm1 = np.sqrt((X1 - pixX) ** 2 + (Y1 - pixY) ** 2)
+    # distanceterm1 = np.sqrt((X1 - pixX) ** 2 + (Y1 - pixY) ** 2)
 
     #                5 det parameters    +  3 small rotations     +   5 strain parameters
     ally_2 = np.array(patchallparam[:5] + [0, 0, 0] + patchallparam[5:])
@@ -796,10 +796,10 @@ def fit_on_demand_strain(starting_param,
     """
 
     # All miller indices must be entered in miller, selection is done in xy_from_Quat with nspots (array of indices)
-    parameters = ["dd", "xcen", "ycen", "angle1", "angle2", "b/a", "c/a",
-                        "a12", "a13", "a23", "theta1", "theta2", "theta3", ]
+    # parameters = ["dd", "xcen", "ycen", "angle1", "angle2", "b/a", "c/a",
+    #                     "a12", "a13", "a23", "theta1", "theta2", "theta3", ]
 
-    parameters_being_fitted = [parameters[k] for k in arr_indexvaryingparameters]
+    # parameters_being_fitted = [parameters[k] for k in arr_indexvaryingparameters]
 
     param_strain_0 = starting_param
 
@@ -860,23 +860,23 @@ def fit_on_demand_strain(starting_param,
     except ValueError:
         pass
     
-    if 0:
-        #------------------------
-        # from scipy.optimize import leastsq, least_squares
+    # if 0:
+    #     #------------------------
+    #     # from scipy.optimize import leastsq, least_squares
 
-        calib_sol2 = least_squares(_error_function_on_demand_strain,
-                                    param_strain_0,
-                                    args=(miller, allparameters, arr_indexvaryingparameters, nspots, pixX, pixY),
-                                tr_solver = 'exact',
-                                x_scale=xscale, max_nfev=None)
+    #     calib_sol2 = least_squares(_error_function_on_demand_strain,
+    #                                 param_strain_0,
+    #                                 args=(miller, allparameters, arr_indexvaryingparameters, nspots, pixX, pixY),
+    #                             tr_solver = 'exact',
+    #                             x_scale=xscale, max_nfev=None)
 
-        # print("\nLEAST_SQUARES")
-        # #print("calib_sol2", calib_sol2['x'])
-        # print(calib_sol2['x'])
-        # print('mean residues', np.mean(calib_sol2['fun']))
+    #     # print("\nLEAST_SQUARES")
+    #     # #print("calib_sol2", calib_sol2['x'])
+    #     # print(calib_sol2['x'])
+    #     # print('mean residues', np.mean(calib_sol2['fun']))
         
-        #return calib_sol2['x']
-        #---------------------  other least square  ------------------                
+    #     #return calib_sol2['x']
+    #     #---------------------  other least square  ------------------                
 
 
     strain_sol = res[0]
@@ -934,8 +934,8 @@ def plot_refinement_oneparameter(starting_param,
     All miller indices must be entered in miller,
     selection is done in xy_from_Quat with nspots (array of indices)
     """
-    parameters = ["distance (mm)", "Xcen (pixel)", "Ycen (pixel)",
-                    "Angle1 (deg)", "Angle2 (deg)", "theta1", "theta2", "theta3"]
+    # parameters = ["distance (mm)", "Xcen (pixel)", "Ycen (pixel)",
+    #                 "Angle1 (deg)", "Angle2 (deg)", "theta1", "theta2", "theta3"]
 
     # parameters_being_fitted = [parameters[k] for k in arr_indexvaryingparameters]
     param_calib_0 = starting_param
@@ -1113,14 +1113,12 @@ def fit_on_demand_strain_2grains(starting_param,
     """
     # All miller indices must be entered in miller
     # selection is done in xy_from_Quat with absolutespotsindices (array of indices)
-    parameterscalib = ["dd", "xcen", "ycen", "angle1", "angle2"]
-    strain_g1 = ["b/a", "c/a", "a12", "a13", "a23"]
-    rot_g1 = ["theta1", "theta2", "theta3"]
-    strain_g2 = ["b/a", "c/a", "a12", "a13", "a23"]
-
-    parameters = parameterscalib + strain_g1 + rot_g1 + strain_g2
-
-    parameters_being_fitted = [parameters[k] for k in arr_indexvaryingparameters]
+    # parameterscalib = ["dd", "xcen", "ycen", "angle1", "angle2"]
+    # strain_g1 = ["b/a", "c/a", "a12", "a13", "a23"]
+    # rot_g1 = ["theta1", "theta2", "theta3"]
+    # strain_g2 = ["b/a", "c/a", "a12", "a13", "a23"]
+    # parameters = parameterscalib + strain_g1 + rot_g1 + strain_g2
+    # parameters_being_fitted = [parameters[k] for k in arr_indexvaryingparameters]
 
     init_strain_values = starting_param
     if verbose:
@@ -1487,12 +1485,12 @@ def error_function_general(varying_parameters_values_array,
             # print "anglevalue (rad)= ",anglevalue
             ca = np.cos(anglevalue)
             sa = np.sin(anglevalue)
-            if parameter_name is "angley":
+            if parameter_name == "angley":
                 Uy = np.array([[ca, 0, sa], [0, 1, 0], [-sa, 0, ca]])
-            elif parameter_name is "anglex":
+            elif parameter_name == "anglex":
                 Ux = np.array([[1.0, 0, 0], [0, ca, sa], [0, -sa, ca]])
 
-            elif parameter_name is "anglez":
+            elif parameter_name == "anglez":
                 Uz = np.array([[ca, -sa, 0], [sa, ca, 0], [0, 0, 1.0]])
 
         elif ((not T_has_elements) and (not Ts_has_elements) and parameter_name
@@ -1980,12 +1978,12 @@ def error_function_latticeparameters(varying_parameters_values_array,
             # print "anglevalue (rad)= ",anglevalue
             ca = np.cos(anglevalue)
             sa = np.sin(anglevalue)
-            if parameter_name is "angley":
+            if parameter_name == "angley":
                 Uy = np.array([[ca, 0, sa], [0, 1, 0], [-sa, 0, ca]])
-            elif parameter_name is "anglex":
+            elif parameter_name == "anglex":
                 Ux = np.array([[1.0, 0, 0], [0, ca, sa], [0, -sa, ca]])
 
-            elif parameter_name is "anglez":
+            elif parameter_name == "anglez":
                 Uz = np.array([[ca, -sa, 0], [sa, ca, 0], [0, 0, 1.0]])
 
         elif parameter_name in ("alpha", "beta", "gamma"):
@@ -2190,12 +2188,11 @@ def error_function_strain(varying_parameters_values_array,
             # print "anglevalue (rad)= ",anglevalue
             ca = np.cos(anglevalue)
             sa = np.sin(anglevalue)
-            if parameter_name is "angley":
+            if parameter_name == "angley":
                 Uy = np.array([[ca, 0, sa], [0, 1, 0], [-sa, 0, ca]])
-            elif parameter_name is "anglex":
+            elif parameter_name == "anglex":
                 Ux = np.array([[1.0, 0, 0], [0, ca, sa], [0, -sa, ca]])
-
-            elif parameter_name is "anglez":
+            elif parameter_name == "anglez":
                 Uz = np.array([[ca, -sa, 0], [sa, ca, 0], [0, 0, 1.0]])
         elif parameter_name in ("Ts00", "Ts01", "Ts02", "Ts11", "Ts12", "Ts22"):
             #             print 'got Ts elements: ', parameter_name
@@ -2533,12 +2530,11 @@ def error_strain_from_elongation(varying_parameters_values_array,
             # print "anglevalue (rad)= ",anglevalue
             ca = np.cos(anglevalue)
             sa = np.sin(anglevalue)
-            if parameter_name is "angley":
+            if parameter_name == "angley":
                 Uy = np.array([[ca, 0, sa], [0, 1, 0], [-sa, 0, ca]])
-            elif parameter_name is "anglex":
+            elif parameter_name == "anglex":
                 Ux = np.array([[1.0, 0, 0], [0, ca, sa], [0, -sa, ca]])
-
-            elif parameter_name is "anglez":
+            elif parameter_name == "anglez":
                 Uz = np.array([[ca, -sa, 0], [sa, ca, 0], [0, 0, 1.0]])
         elif parameter_name in ("Ts00", "Ts01", "Ts02", "Ts11", "Ts12", "Ts22"):
             #             print 'got Ts elements: ', parameter_name

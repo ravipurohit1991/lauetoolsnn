@@ -38,6 +38,4 @@ include lauetoolsnn/util_scripts/*.ipynb
 include lauetoolsnn/lauetools/*.py
 include lauetoolsnn/lauetools/*.json
 
-include lauetoolsnn/developments/*.py
-
 recursive-include lauetoolsnn/*.*
