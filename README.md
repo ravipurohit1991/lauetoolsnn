@@ -32,6 +32,7 @@ Version 3.0.59
 ### Installation
 Lauetoolsnn can be installed either via PYPI usiing the following command in terminal (this installs all dependencies automatically): 
 https://pypi.org/project/lauetoolsnn/
+
 https://anaconda.org/bm32esrf/lauetoolsnn
 
 ``` bash
