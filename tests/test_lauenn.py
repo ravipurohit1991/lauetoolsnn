@@ -1,5 +1,6 @@
 ## as of now only test imports
 ## testing of GUI to be done after installation manually with example case
+import pytest
 
 import lauetoolsnn
 import keras
@@ -28,3 +29,10 @@ print("skimage :", pkg_resources.require("skimage")[0].version)
 print("fabio :", pkg_resources.require("fabio")[0].version)
 print("networkx :", pkg_resources.require("networkx")[0].version)
 print("tqdm :", pkg_resources.require("tqdm")[0].version)
+
+
+def test_method1():
+	a = 6
+	b = 8
+	assert a+2== b, "test failed"
+	assert b-2 == a, "test failed"
