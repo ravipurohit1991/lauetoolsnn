@@ -38,6 +38,7 @@ requirements:
     - scipy
     - numpy
     - pip
+    - tqdm
   run:
     - python >=3.7
     - matplotlib-base
@@ -51,6 +52,7 @@ requirements:
     - fabio
     - networkx
     - scikit-image
+    - tqdm
 
 test:
   imports:
@@ -65,6 +67,7 @@ test:
     - skimage
     - fabio
     - networkx
+    - tqdm
     
 about:
   home: https://github.com/ravipurohit1991/lauetoolsnn
