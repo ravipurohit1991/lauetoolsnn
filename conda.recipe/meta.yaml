@@ -26,7 +26,6 @@ requirements:
     - pip
   host:
     - python >=3.7
-    - tqdm
     - scikit-image
     - fabio
     - scikit-learn
@@ -52,7 +51,6 @@ requirements:
     - fabio
     - networkx
     - scikit-image
-    - tqdm
 
 test:
   imports:
@@ -67,7 +65,6 @@ test:
     - skimage
     - fabio
     - networkx
-    - tqdm
     
 about:
   home: https://github.com/ravipurohit1991/lauetoolsnn
