@@ -69,6 +69,7 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
                     "SG": 62,                     ## Space group of material_ (None if not known)
                     "SG1": 99,                    ## Space group of material1_ (None if not known)
                     "hkl_max_identify" : 5,        ## Maximum hkl index to classify in a Laue pattern
+                    "hkl_max_identify1" : 5,        ## Maximum hkl index to classify in a Laue pattern
                     "maximum_angle_to_search":120, ## Angle of radial distribution to reconstruct the histogram (in deg)
                     "step_for_binning" : 0.1,      ## bin widht of angular radial distribution in degree
                     "nb_grains_per_lp_mat0" : 1,        ## max grains to be generated in a Laue Image
@@ -92,6 +93,7 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
     material_= input_params["material_"]
     material1_= input_params["material1_"]
     n = input_params["hkl_max_identify"]
+    n1 = input_params["hkl_max_identify"]
     maximum_angle_to_search = input_params["maximum_angle_to_search"]
     step_for_binning = input_params["step_for_binning"]
     nb_grains_per_lp0 = input_params["nb_grains_per_lp_mat0"]
@@ -143,7 +145,7 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
               step = step_for_binning, mat_listHKl=hkl_array)
     
     if material_ != material1_:
-        generate_classHKL(n, rules1, lattice_material1, symmetry1, material1_, crystal=crystal1, SG=SG1, general_diff_cond=False,
+        generate_classHKL(n1, rules1, lattice_material1, symmetry1, material1_, crystal=crystal1, SG=SG1, general_diff_cond=False,
                   save_directory=save_directory, write_to_console=print, ang_maxx = maximum_angle_to_search, 
                   step = step_for_binning, mat_listHKl=hkl_array1)
     

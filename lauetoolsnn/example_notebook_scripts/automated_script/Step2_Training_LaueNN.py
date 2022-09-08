@@ -25,6 +25,7 @@ if __name__ == '__main__':     #enclosing required because of multiprocessing
     ## if LaueToolsNN is properly installed
     try:
         from lauetoolsnn.utils_lauenn import array_generator, array_generator_verify, vali_array
+        from lauetoolsnn.NNmodels import model_arch_general
     except:
         # else import from a path where LaueToolsNN files are
         import sys
