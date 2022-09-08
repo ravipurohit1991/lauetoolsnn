@@ -10,11 +10,13 @@ source:
 
 build:
   entry_points:
-    {% for entry_point in data['entry_points']['console_scripts'] %}
-    - {{ entry_point }}
-    {% endfor %}
-  script: python -m pip install --no-deps --ignore-installed .
+    - lauetoolsnn=lauetoolsnn.lauetoolsneuralnetwork:start
+    - lauenn=lauetoolsnn.lauetoolsneuralnetwork:start
+    - lauenn_addmat=lauetoolsnn.util_scripts.add_material:start
+    - lauenn_mat=lauetoolsnn.util_scripts.add_material:querymat
+  script: python -m pip install . -vv
   number: 0
+  osx_is_app: True
 
 requirements:
   build:
@@ -67,9 +69,9 @@ test:
     - tqdm
     
 about:
-  home: {{ data['url'] }}
-  license: {{ data['license'] }}
-  summary: {{ data['description'] }}
+  home: https://github.com/ravipurohit1991/lauetoolsnn
+  summary: LaueNN- neural network training and prediction routine to index single and polycrystalline Laue diffraction patterns
+  license: MIT
 
 app:
   entry: lauetoolsnn
@@ -79,4 +81,4 @@ app:
   
 extra:
   recipe-maintainers:
-    - ravipurohit
+    - ravipurohit1991
