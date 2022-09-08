@@ -3,7 +3,7 @@
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/ravipurohit1991/lauetoolsnn/issues)
 [![HitCount](https://hits.dwyl.com/ravipurohit1991/lauetoolsnn.svg?style=flat-square&show=unique)](http://hits.dwyl.com/ravipurohit1991/lauetoolsnn)
 
-<img src="[https://your-image-url.type](https://github.com/ravipurohit1991/lauetoolsnn/blob/main/icon.png)" width="100" height="100">
+<img src="[https://your-image-url.type](https://github.com/ravipurohit1991/lauetoolsnn/blob/main/icon.png)" width="500" height="200">
 
 # lauetoolsnn
 A feed-forward neural network (FFNN) model to predict the HKL in single/multi-grain/multi-phase Laue patterns with high efficiency and accuracy is introduced. 
