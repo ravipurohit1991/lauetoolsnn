@@ -1,11 +1,12 @@
+
 ![GitHub CI](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/python-package.yml/badge.svg)
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/ravipurohit1991/lauetoolsnn/issues)
 [![HitCount](https://hits.dwyl.com/ravipurohit1991/lauetoolsnn.svg?style=flat-square&show=unique)](http://hits.dwyl.com/ravipurohit1991/lauetoolsnn)
 
-
 # lauetoolsnn
 A feed-forward neural network (FFNN) model to predict the HKL in single/multi-grain/multi-phase Laue patterns with high efficiency and accuracy is introduced. 
 
+  
 Version 3.0.59
 ### Video tutorial
 
@@ -31,6 +32,7 @@ Version 3.0.59
 ### Installation
 Lauetoolsnn can be installed either via PYPI usiing the following command in terminal (this installs all dependencies automatically): 
 https://pypi.org/project/lauetoolsnn/
+
 https://anaconda.org/bm32esrf/lauetoolsnn
 
 ``` bash
