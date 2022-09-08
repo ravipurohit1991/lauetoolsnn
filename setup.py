@@ -9,7 +9,7 @@ with open(os.path.join(os.path.dirname(__file__), "README.md")) as readme:
 setuptools.setup(
     name="lauetoolsnn",
     
-    version="3.0.61",
+    version="3.0.62",
 
     author="Ravi raj purohit PURUSHOTTAM RAJ PUROHIT",
     
@@ -27,7 +27,7 @@ setuptools.setup(
     
     url="https://github.com/ravipurohit1991/lauetoolsnn",
     
-    setup_requires=['matplotlib', 'Keras', 'scipy','numpy', 'h5py', 'tensorflow', 'PyQt5', 'scikit-learn', 'fabio', 'networkx', 'scikit-image','tqdm'],
+    setup_requires=['matplotlib', 'Keras', 'scipy','numpy', 'h5py', 'tensorflow', 'PyQt5', 'scikit-learn', 'fabio', 'networkx', 'scikit-image', 'tqdm'],
 #    install_requires=['matplotlib>=3.4.2', 'Keras>=2.7.0', 'scipy>=1.7.0','numpy>=1.18.5', 'h5py>=3.1', 'tensorflow>=2.7.0', 'PyQt5>=5.9', 'scikit-learn>=0.24.2', 'fabio>=0.11.0', 'networkx>=2.6.3', 'scikit-image>=0.18.0','tqdm>=4.60.0'],
 
 
@@ -39,7 +39,6 @@ setuptools.setup(
                  },
                  
     classifiers=[
-                    "Programming Language :: Python :: 3.6",
                     "Programming Language :: Python :: 3.7",
                     "Programming Language :: Python :: 3.8",
                     "Programming Language :: Python :: 3.9",
@@ -50,5 +49,5 @@ setuptools.setup(
                     "License :: OSI Approved :: MIT License "
                 ],
                 
-    python_requires='~=3.6',
+    python_requires='~=3.7',
 )

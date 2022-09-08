@@ -15,16 +15,31 @@ build:
     - lauenn_addmat=lauetoolsnn.util_scripts.add_material:start
     - lauenn_mat=lauetoolsnn.util_scripts.add_material:querymat
   script: python -m pip install . -vv
-  number: 0
+  number: 1
   osx_is_app: True
 
 requirements:
   build:
     - python
-    - pip
     - setuptools
+    - pip
   host:
-    - python
+    - python >=3.7
+    - tqdm
+    - scikit-image
+    - fabio
+    - scikit-learn
+    - tensorflow
+    - h5py
+    - keras
+    - networkx
+    - pyqt
+    - matplotlib-base
+    - scipy
+    - numpy
+    - pip
+  run:
+    - python >=3.7
     - matplotlib-base
     - keras
     - scipy
@@ -37,21 +52,6 @@ requirements:
     - networkx
     - scikit-image
     - tqdm
-    - pip
-  run:
-    - python >=3.6
-    - matplotlib-base >=3.4.2
-    - keras >=2.7.0
-    - scipy >=1.7.0
-    - numpy >=1.18.5
-    - h5py >=3.1
-    - tensorflow >=2.7.0
-    - pyqt >=5.9
-    - scikit-learn >=0.24.2
-    - fabio >=0.11.0
-    - networkx >=2.6.3
-    - scikit-image >=0.18.0
-    - tqdm >=4.60.0
 
 test:
   imports:
@@ -72,12 +72,6 @@ about:
   home: https://github.com/ravipurohit1991/lauetoolsnn
   summary: LaueNN- neural network training and prediction routine to index single and polycrystalline Laue diffraction patterns
   license: MIT
-
-app:
-  entry: lauetoolsnn
-  icon: icon.png
-  summary:  "Neural network workflow for indexation of Laue patterns"
-  type: desk
   
 extra:
   recipe-maintainers:
