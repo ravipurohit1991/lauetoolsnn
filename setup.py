@@ -9,7 +9,7 @@ with open(os.path.join(os.path.dirname(__file__), "README.md")) as readme:
 setuptools.setup(
     name="lauetoolsnn",
     
-    version="3.0.62",
+    version="3.0.63",
 
     author="Ravi raj purohit PURUSHOTTAM RAJ PUROHIT",
     

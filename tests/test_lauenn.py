@@ -61,7 +61,7 @@ def test_method1():
     
     #TODO add an example test case that verifies all the functionality of GUI
     # For eample run the automated scripts from the example notebook directory
-    
+    # need to add prediction routine , with simulated data ?
 
 def test_lauenn_GenerationandTraining_module():
     ## Import modules used for this Notebook

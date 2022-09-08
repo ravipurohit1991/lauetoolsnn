@@ -14,10 +14,8 @@ build:
     - lauenn=lauetoolsnn.lauetoolsneuralnetwork:start
     - lauenn_addmat=lauetoolsnn.util_scripts.add_material:start
     - lauenn_mat=lauetoolsnn.util_scripts.add_material:querymat
-  noarch: python
   script: {{ PYTHON }} -m pip install . -vv
-  number: 1
-  osx_is_app: True
+  number: 0
 
 requirements:
   build:
