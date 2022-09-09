@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 r"""
 Core module to compute Laue Pattern in various geometry
 

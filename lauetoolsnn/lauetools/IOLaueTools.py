@@ -1,4 +1,4 @@
-#! python
+# -*- coding: utf-8 -*-
 """
 module of lauetools project
 

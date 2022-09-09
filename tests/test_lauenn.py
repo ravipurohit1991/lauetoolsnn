@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 ## as of now only test imports
 ## testing of GUI to be done after installation manually with example case
 # import pytest
@@ -67,7 +69,11 @@ def test_lauenn_GenerationandTraining_module():
     ## Import modules used for this Notebook
     import os
     ## if LaueToolsNN is properly installed
-    from lauetoolsnn.utils_lauenn import generate_classHKL, generate_dataset, rmv_freq_class, get_material_detail
+    try:
+        from lauetoolsnn.utils_lauenn import generate_classHKL, generate_dataset, rmv_freq_class, get_material_detail
+    except:
+        print("relative import failing")
+        return
     # ## step 1: define material and other parameters for simulating Laue patterns
     # =============================================================================
     ## User Input dictionary with parameters

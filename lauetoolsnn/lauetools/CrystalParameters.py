@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 r"""
 This module belong to LaueTools package. It gathers procedures to define crystal
 lattice parameters and strain calculations

@@ -307,6 +307,8 @@ class Window(QMainWindow):
         self.state1 = 0
         self.state2 = 0
         self.model = None
+        self.mat0_listHKl = None
+        self.mat1_listHKl = None
         self.mode_spotCycleglobal = mode_spotCycle
         self.softmax_threshold_global = softmax_threshold_global
         self.mr_threshold_global = mr_threshold_global

@@ -1,19 +1,15 @@
-name: publish_conda
+name: Publish_Conda
 
-on:
-  release:
-    types: [published]
-    
+on: [release]
+
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@master
     - name: publish-to-conda
-      uses: ravipurohit1991/conda-package-publish-action@v1.4.1
+      uses: ravipurohit1991/conda-package-publish-action@master
       with:
         subDir: 'conda.recipe'
-        AnacondaToken: ${{ secrets.ANACONDA_TOKEN }}
-        platforms: 'all'
-        override: true
-        dry_run: false
+        AnacondaUsername: ${{ secrets.CONDA_USERNAME }}
+        AnacondaPassword: ${{ secrets.CONDA_PASSWORD }}

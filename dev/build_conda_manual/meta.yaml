@@ -1,12 +1,13 @@
 {% set name = "lauetoolsnn" %}
-{% set data = load_setup_py_data() %}
+{% set version = "3.0.62" %}
 
 package:
   name: {{ name|lower }}
-  version: {{ data['version'] }}
+  version: {{ version }}
 
 source:
-  path: ..
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/lauetoolsnn-{{ version }}.tar.gz
+  sha256: 02085b597f2a1f4e8dbb859ad334b40b6f882009de10583808c26e8431a1828f
 
 build:
   entry_points:
@@ -14,17 +15,15 @@ build:
     - lauenn=lauetoolsnn.lauetoolsneuralnetwork:start
     - lauenn_addmat=lauetoolsnn.util_scripts.add_material:start
     - lauenn_mat=lauetoolsnn.util_scripts.add_material:querymat
-  script: {{ PYTHON }} -m pip install . -vv
-  number: 0
   noarch: python
-
+  script: {{ PYTHON }} -m pip install . -vv
+  number: 1
+  osx_is_app: True
+  
 requirements:
-  build:
-    - python >=3.6
-    - setuptools
-    - pip
   host:
     - python >=3.6
+    - tqdm
     - scikit-image
     - fabio
     - scikit-learn
@@ -37,21 +36,20 @@ requirements:
     - scipy
     - numpy
     - pip
-    - tqdm
   run:
     - python >=3.6
-    - matplotlib-base
+    - tqdm
+    - scikit-image
+    - fabio
+    - scikit-learn
+    - tensorflow
+    - h5py
     - keras
+    - networkx
+    - pyqt
+    - matplotlib-base
     - scipy
     - numpy
-    - h5py
-    - tensorflow
-    - pyqt
-    - scikit-learn
-    - fabio
-    - networkx
-    - scikit-image
-    - tqdm
 
 test:
   imports:
@@ -73,6 +71,12 @@ about:
   summary: LaueNN- neural network training and prediction routine to index single and polycrystalline Laue diffraction patterns
   license: MIT
 
+app:
+  entry: lauetoolsnn
+  icon: icon.png
+  summary:  "Neural network workflow for indexation of Laue patterns"
+  type: desk
+  
 extra:
   recipe-maintainers:
     - ravipurohit1991
