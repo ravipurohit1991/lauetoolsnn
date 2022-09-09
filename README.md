@@ -87,3 +87,12 @@ In addition, all the above mentioned steps can be done without the GUI and are d
 Jupyter notebook scripts are provided to run all the steps sequentially.
 
 The indexed orientation matrix is also written in ".ctf" format, which can then be opened with channel 5 Aztec or MTEX software to do post processing related to orientations analysis. MTEX post processing script is also included in the lauetoolsnn\util_script\MTEX_plot.m
+
+
+## Support
+
+Do not hesitate to contact the development team at [purushot@esrf.fr](mailto:purushot@esrf.fr) or [micha@esrf.fr](mailto:micha@esrf.fr).
+
+## Maintainer(s)
+
+* [Ravi PURUSHOTTAM](https://github.com/ravipurohit1991)
