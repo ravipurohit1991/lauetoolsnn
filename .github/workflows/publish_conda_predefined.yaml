@@ -5,15 +5,23 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-    
+
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+
+    - name: Checkout
+      uses: actions/checkout@v2
+
     - name: publish-to-conda
-      uses: fcakyon/conda-publish-action@v1.3
+      uses: amauryval/publish_conda_package_action@2.0.3
       with:
-        subdir: 'conda.recipe'
-        anacondatoken: ${{ secrets.ANACONDA_TOKEN }}
-        platforms: 'win osx linux'
+        # CondaDir: locate the directory containing your meta.yml, conda_build_config.yaml (...) files
+        CondaDir: 'conda.recipe'
+        # Channels: You can add more channel with a space separator
+        Channels: 'conda-forge an-other-chan' 
+        # Platforms: remove one or more of these platforms
+        Platforms: 'osx-64 linux-32 linux-64 win-32 win-64 noarch'
+        CondaUsername: ${{ secrets.CONDA_USERNAME }}
+        CondaPassword: ${{ secrets.CONDA_PASSWORD }}
