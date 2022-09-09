@@ -9,7 +9,7 @@
 
 
 [![PyPI version](https://badge.fury.io/py/lauetoolsnn.svg)](https://badge.fury.io/py/lauetoolsnn)
-[![PyPI pyversions](https://img.shields.io/pypi/pyversions/ansicolortags.svg)](https://pypi.python.org/pypi/lauetoolsnn/)
+[![PyPI pyversions](https://img.shields.io/pypi/pyversions/lauetoolsnn.svg)](https://pypi.python.org/pypi/lauetoolsnn/)
 [![GitHub version](https://badge.fury.io/gh/ravipurohit1991%2Flauetoolsnn.svg)](https://badge.fury.io/gh/ravipurohit1991%2Flauetoolsnn)
 [![Anaconda-Server Badge](https://anaconda.org/bm32esrf/lauetoolsnn/badges/platforms.svg)](https://anaconda.org/bm32esrf/lauetoolsnn)
 [![Anaconda-Server Badge](https://anaconda.org/bm32esrf/lauetoolsnn/badges/license.svg)](https://anaconda.org/bm32esrf/lauetoolsnn)
