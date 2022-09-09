@@ -8,6 +8,7 @@ package:
 source:
   path: ..
 
+
 build:
   entry_points:
     - lauetoolsnn=lauetoolsnn.lauetoolsneuralnetwork:start
