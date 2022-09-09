@@ -15,15 +15,27 @@ build:
     - lauenn=lauetoolsnn.lauetoolsneuralnetwork:start
     - lauenn_addmat=lauetoolsnn.util_scripts.add_material:start
     - lauenn_mat=lauetoolsnn.util_scripts.add_material:querymat
-  script: {{ PYTHON }} -m pip install . -vv
+  script: python setup.py install --single-version-externally-managed --record=record.txt
   number: 0
-  noarch: python
 
 requirements:
   build:
     - python >=3.6
     - setuptools
     - pip
+    - scikit-image
+    - fabio
+    - scikit-learn
+    - tensorflow
+    - h5py
+    - keras
+    - networkx
+    - pyqt
+    - matplotlib-base
+    - scipy
+    - numpy
+    - pip
+    - tqdm
   host:
     - python >=3.6
     - scikit-image
