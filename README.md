@@ -1,10 +1,22 @@
-
-
 [![Python package](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/python-package.yml/badge.svg)](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/python-package.yml)
 [![Publish_PYPI](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_PYPI.yml/badge.svg)](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_PYPI.yml)
 [![Publish_Conda](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_conda.yml/badge.svg)](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_conda.yml)
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/ravipurohit1991/lauetoolsnn/issues)
 [![HitCount](https://hits.dwyl.com/ravipurohit1991/lauetoolsnn.svg?style=flat-square&show=unique)](http://hits.dwyl.com/ravipurohit1991/lauetoolsnn)
+[![Linux](https://svgshare.com/i/Zhy.svg)](https://svgshare.com/i/Zhy.svg)
+[![macOS](https://svgshare.com/i/ZjP.svg)](https://svgshare.com/i/ZjP.svg)
+[![Windows](https://svgshare.com/i/ZhY.svg)](https://svgshare.com/i/ZhY.svg)
+
+
+[![PyPI version](https://badge.fury.io/py/lauetoolsnn.svg)](https://badge.fury.io/py/lauetoolsnn)
+[![GitHub version](https://badge.fury.io/gh/ravipurohit1991%2Flauetoolsnn.svg)](https://badge.fury.io/gh/ravipurohit1991%2Flauetoolsnn)
+[![Anaconda-Server Badge](https://anaconda.org/bm32esrf/lauetoolsnn/badges/platforms.svg)](https://anaconda.org/bm32esrf/lauetoolsnn)
+[![Anaconda-Server Badge](https://anaconda.org/bm32esrf/lauetoolsnn/badges/license.svg)](https://anaconda.org/bm32esrf/lauetoolsnn)
+[![Anaconda-Server Badge](https://anaconda.org/bm32esrf/lauetoolsnn/badges/version.svg)](https://anaconda.org/bm32esrf/lauetoolsnn)
+[![Anaconda-Server Badge](https://anaconda.org/bm32esrf/lauetoolsnn/badges/installer/conda.svg)](https://conda.anaconda.org/bm32esrf)
+
+
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ravipurohit1991/lauetoolsnn/main)
 
 <p align="center">
   <img width="460" height="300" src="https://github.com/ravipurohit1991/lauetoolsnn/blob/main/icon.png">
