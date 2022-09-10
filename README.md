@@ -10,10 +10,9 @@
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/lauetoolsnn.svg)](https://pypi.python.org/pypi/lauetoolsnn/)
 [![GitHub version](https://badge.fury.io/gh/ravipurohit1991%2Flauetoolsnn.svg)](https://badge.fury.io/gh/ravipurohit1991%2Flauetoolsnn)
 
-![Conda](https://img.shields.io/conda/pn/bm32esrf/lauetoolsnn?logo=Lauetoolsnn&logoColor=green)
 [![Publish_Conda](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_conda.yml/badge.svg)](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_conda.yml)
 [![Anaconda-Server Badge](https://anaconda.org/bm32esrf/lauetoolsnn/badges/license.svg)](https://anaconda.org/bm32esrf/lauetoolsnn)
-[![Anaconda-Server Badge](https://anaconda.org/bm32esrf/lauetoolsnn/badges/version.svg)](https://anaconda.org/bm32esrf/lauetoolsnn)
+![Conda](https://img.shields.io/conda/v/bm32esrf/lauetoolsnn?style=for-the-badge)
 [![Anaconda-Server Badge](https://anaconda.org/bm32esrf/lauetoolsnn/badges/installer/conda.svg)](https://conda.anaconda.org/bm32esrf)
 
 
