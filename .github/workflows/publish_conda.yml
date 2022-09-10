@@ -1,17 +1,16 @@
-name: Publish_Conda
+name: publish_conda
 
 on:
   release:
     types: [published]
-
+    
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@master
+    - uses: actions/checkout@v1
     - name: publish-to-conda
-      uses: ravipurohit1991/conda-package-publish-action@master
+      uses: maxibor/conda-package-publish-action@v1.1
       with:
-        subDir: 'conda.recipe'
-        AnacondaUsername: ${{ secrets.CONDA_USERNAME }}
-        AnacondaPassword: ${{ secrets.CONDA_PASSWORD }}
+        subDir: 'conda'
+        AnacondaToken: ${{ secrets.ANACONDA_TOKEN }}
