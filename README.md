@@ -28,7 +28,6 @@ A feed-forward neural network (FFNN) model to predict the HKL in single/multi-gr
 ### Video tutorial
 
 - Video 1: Working with jupyter notebook scripts : https://cloud.esrf.fr/s/6q4DJfAn7K46BGN
-[![Watch the video](https://img.youtube.com/vi/T-D1KVIuvjA/maxresdefault.jpg)](https://cloud.esrf.fr/s/6q4DJfAn7K46BGN)
 - Video 2: Working with lauetoolsnn GUI : https://cloud.esrf.fr/s/AeGow4CoqZRJiyx
 
 
