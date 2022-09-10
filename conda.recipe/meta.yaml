@@ -38,6 +38,8 @@ requirements:
     - tqdm
   host:
     - python >=3.6
+    - setuptools
+    - pip
     - scikit-image
     - fabio
     - scikit-learn
