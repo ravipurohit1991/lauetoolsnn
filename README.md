@@ -1,15 +1,17 @@
 [![Conda](https://img.shields.io/conda/pn/bm32esrf/lauetoolsnn?color=green&label=supported%20platform)](https://anaconda.org/bm32esrf/lauetoolsnn)
 [![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/ravipurohit1991/lauetoolsnn?color=blue&label=Github%20tag)](https://github.com/ravipurohit1991/lauetoolsnn/)
 
+
 [![Python package](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/python-package.yml/badge.svg)](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/python-package.yml)
 [![Publish_PYPI](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_PYPI.yml/badge.svg)](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_PYPI.yml)
 [![PyPI](https://img.shields.io/pypi/v/lauetoolsnn)](https://pypi.python.org/pypi/lauetoolsnn/)
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/lauetoolsnn.svg)](https://pypi.python.org/pypi/lauetoolsnn/)
 
+
 [![Publish_Conda](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_conda.yml/badge.svg)](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_conda.yml)
 [![Anaconda-Server Badge](https://anaconda.org/bm32esrf/lauetoolsnn/badges/license.svg)](https://anaconda.org/bm32esrf/lauetoolsnn)
-[![Conda](https://img.shields.io/conda/v/bm32esrf/lauetoolsnn?style=flat-square)](https://anaconda.org/bm32esrf/lauetoolsnn)
-[![Anaconda-Server Badge](https://anaconda.org/bm32esrf/lauetoolsnn/badges/installer/conda.svg)](https://anaconda.org/bm32esrf/lauetoolsnn)
+[![Conda](https://img.shields.io/conda/v/bm32esrf/lauetoolsnn?style=flat-square)](https://conda.anaconda.org/bm32esrf/lauetoolsnn)
+[![Anaconda-Server Badge](https://anaconda.org/bm32esrf/lauetoolsnn/badges/installer/conda.svg)](https://conda.anaconda.org/bm32esrf/lauetoolsnn)
 
 
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/ravipurohit1991/lauetoolsnn/issues)
@@ -47,6 +49,7 @@ A feed-forward neural network (FFNN) model to predict the HKL in single/multi-gr
 
 ### Installation
 Lauetoolsnn can be installed either via PYPI usiing the following command in terminal (this installs all dependencies automatically): 
+
 https://pypi.org/project/lauetoolsnn/
 
 https://anaconda.org/bm32esrf/lauetoolsnn
