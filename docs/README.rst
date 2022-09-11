@@ -1,37 +1,3 @@
-.. image:: https://github.com/ravipurohit1991/lauetoolsnn/blob/main/icon.png?raw=true
-
-.. image:: https://img.shields.io/conda/pn/bm32esrf/lauetoolsnn?color=green&label=supported%20platform
-	:target: https://anaconda.org/bm32esrf/lauetoolsnn
-.. image:: https://img.shields.io/github/v/tag/ravipurohit1991/lauetoolsnn?color=blue&label=Github%20tag
-	:target: https://github.com/ravipurohit1991/lauetoolsnn/
-.. image:: https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/pages/pages-build-deployment/badge.svg
-	:target: https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/pages/pages-build-deployment
-
-.. image:: https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/python-package.yml/badge.svg
-	:target: https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/python-package.yml
-.. image:: https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_PYPI.yml/badge.svg
-	:target: https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_PYPI.yml
-.. image:: https://img.shields.io/pypi/v/lauetoolsnn
-	:target: https://pypi.python.org/pypi/lauetoolsnn/
-.. image:: https://img.shields.io/pypi/pyversions/lauetoolsnn.svg
-	:target: https://pypi.python.org/pypi/lauetoolsnn/
-
-.. image:: https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_conda.yml/badge.svg
-	:target: https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_conda.yml
-.. image:: https://anaconda.org/bm32esrf/lauetoolsnn/badges/license.svg
-	:target: https://anaconda.org/bm32esrf/lauetoolsnn
-.. image:: https://img.shields.io/conda/v/bm32esrf/lauetoolsnn?style=flat-square
-	:target: https://conda.anaconda.org/bm32esrf/lauetoolsnn
-.. image:: https://anaconda.org/bm32esrf/lauetoolsnn/badges/installer/conda.svg
-	:target: https://conda.anaconda.org/bm32esrf/lauetoolsnn
-
-.. image:: https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat
-	:target: https://github.com/ravipurohit1991/lauetoolsnn/issues
-.. image:: https://hits.dwyl.com/ravipurohit1991/lauetoolsnn.svg?style=flat-square&show=unique
-	:target: http://hits.dwyl.com/ravipurohit1991/lauetoolsnn
-.. image:: https://mybinder.org/badge_logo.svg
-	:target: https://mybinder.org/v2/gh/ravipurohit1991/lauetoolsnn/main
-
 
 ===================================================================================================
 lauetoolsnn
