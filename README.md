@@ -29,12 +29,13 @@ An autonomous feed-forward neural network (FFNN) model to predict the HKL in sin
 
   
 ### Video tutorial
-
+------------------------------
 - Video 1: Working with jupyter notebook scripts : https://cloud.esrf.fr/s/6q4DJfAn7K46BGN
 - Video 2: Working with lauetoolsnn GUI : https://cloud.esrf.fr/s/AeGow4CoqZRJiyx
 
 
-### Requirements: (latest version of each libraries accessed on 03/04/2022)  
+### Requirements: (latest version of each libraries accessed on 03/04/2022) 
+------------------------------ 
 - PyQt5 (GUI)
 - matplotlib
 - Keras
@@ -50,6 +51,7 @@ An autonomous feed-forward neural network (FFNN) model to predict the HKL in sin
 - opencv (for LOG based peak search)
 
 ### Installation
+------------------------------
 Lauetoolsnn can be installed either via PYPI usiing the following command in terminal (this installs all dependencies automatically): 
 
 https://pypi.org/project/lauetoolsnn/
@@ -70,11 +72,13 @@ $ python setup.py install
 See procedure_usage_lauetoolsnn.pdf for installation and how to write the configuration file to be used with GUI.
 
 ### Documentation
+------------------------------
 Documentation (under construction) for lauetoolsnn/lauenn is found on the webpage
 https://ravipurohit1991.github.io/lauetoolsnn/
 
 
 ### Example case
+------------------------------
 Two example case studies are included in the lauetoolsnn\examples folder.
 Run the GUI by either launching directly from the terminal using the 'lauetoolsnn' command or by running it locally with python lauetoolsneuralnetwork.py command.
 
@@ -93,19 +97,21 @@ Jupyter notebook scripts are provided to run all the steps sequentially.
 
 The indexed orientation matrix is also written in ".ctf" format, which can then be opened with channel 5 Aztec or MTEX software to do post processing related to orientations analysis. MTEX post processing script is also included in the lauetoolsnn\util_script\MTEX_plot.m
 
-## citation
+## Citation
+------------------------------
 If you use this software, please cite it using the metadata available in the citation_bibtex.cff file in root.
 ``` bash
 Purushottam Raj Purohit, R. R. P., Tardif, S., Castelnau, O., Eymery, J., Guinebretiere, R., Robach, O., Ors, T. & Micha, J.-S. (2022). J. Appl. Cryst. 55, 737-750.
 ```
 
 ## Known Issues
+------------------------------
 So far, there is a issue with H5py and HDF5 version in the windows installation with conda. If error with H5py version mismatch exist after conda installation, please try "pip install lauetoolsnn" on windows as this should not have this problem. The other possibility is to install the H5py with pip before or after installing lauetoolsnn with conda.
 
 ## Support
-
+------------------------------
 Do not hesitate to contact the development team at [purushot@esrf.fr](mailto:purushot@esrf.fr) or [micha@esrf.fr](mailto:micha@esrf.fr).
 
 ## Maintainer(s)
-
+------------------------------
 * [Ravi PURUSHOTTAM](https://github.com/ravipurohit1991)
