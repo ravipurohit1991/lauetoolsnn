@@ -1,6 +1,6 @@
 
 ===================================================================================================
-lauetoolsnn
+Welcome to lauetoolsnn documentation
 ===================================================================================================
 An autonomous feed-forward neural network (FFNN) model to predict the HKL in single/multi-grain/multi-phase Laue patterns with high efficiency and accuracy is introduced. 
 
