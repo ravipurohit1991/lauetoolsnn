@@ -1,4 +1,4 @@
-name: publish_conda
+name: publish_conda_win_mac_linux
 
 on:
   release:
