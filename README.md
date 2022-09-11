@@ -70,6 +70,7 @@ $ python setup.py install
 ```
 
 See procedure_usage_lauetoolsnn.pdf for installation and how to write the configuration file to be used with GUI.
+This project is also hosted on sourceforge.net https://lauetoolsnn.sourceforge.io
 
 ### Documentation
 ------------------------------
