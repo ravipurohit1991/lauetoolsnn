@@ -69,6 +69,11 @@ $ python setup.py install
 
 See procedure_usage_lauetoolsnn.pdf for installation and how to write the configuration file to be used with GUI.
 
+### Documentation
+Documentation (under construction) for lauetoolsnn/lauenn is found on the webpage
+https://ravipurohit1991.github.io/lauetoolsnn/
+
+
 ### Example case
 Two example case studies are included in the lauetoolsnn\examples folder.
 Run the GUI by either launching directly from the terminal using the 'lauetoolsnn' command or by running it locally with python lauetoolsneuralnetwork.py command.
