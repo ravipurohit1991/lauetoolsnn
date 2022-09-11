@@ -1,55 +1,44 @@
-.. image:: https://github.com/ravipurohit1991/lauetoolsnn/blob/main/icon.png?raw=true
-
-.. image:: https://img.shields.io/conda/pn/bm32esrf/lauetoolsnn?color=green&label=supported%20platform
-	:target: https://anaconda.org/bm32esrf/lauetoolsnn
-.. image:: https://img.shields.io/github/v/tag/ravipurohit1991/lauetoolsnn?color=blue&label=Github%20tag
-	:target: https://github.com/ravipurohit1991/lauetoolsnn/
-.. image:: https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/pages/pages-build-deployment/badge.svg
-	:target: https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/pages/pages-build-deployment
-
-.. image:: https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/python-package.yml/badge.svg
-	:target: https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/python-package.yml
-.. image:: https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_PYPI.yml/badge.svg
-	:target: https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_PYPI.yml
-.. image:: https://img.shields.io/pypi/v/lauetoolsnn
-	:target: https://pypi.python.org/pypi/lauetoolsnn/
-.. image:: https://img.shields.io/pypi/pyversions/lauetoolsnn.svg
-	:target: https://pypi.python.org/pypi/lauetoolsnn/
-
-.. image:: https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_conda.yml/badge.svg
-	:target: https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_conda.yml
-.. image:: https://anaconda.org/bm32esrf/lauetoolsnn/badges/license.svg
-	:target: https://anaconda.org/bm32esrf/lauetoolsnn
-.. image:: https://img.shields.io/conda/v/bm32esrf/lauetoolsnn?style=flat-square
-	:target: https://conda.anaconda.org/bm32esrf/lauetoolsnn
-.. image:: https://anaconda.org/bm32esrf/lauetoolsnn/badges/installer/conda.svg
-	:target: https://conda.anaconda.org/bm32esrf/lauetoolsnn
-
-.. image:: https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat
-	:target: https://github.com/ravipurohit1991/lauetoolsnn/issues
-.. image:: https://hits.dwyl.com/ravipurohit1991/lauetoolsnn.svg?style=flat-square&show=unique
-	:target: http://hits.dwyl.com/ravipurohit1991/lauetoolsnn
-.. image:: https://mybinder.org/badge_logo.svg
-	:target: https://mybinder.org/v2/gh/ravipurohit1991/lauetoolsnn/main
+<p align="center">
+  <img width="1000" height="350" src="https://github.com/ravipurohit1991/lauetoolsnn/blob/main/icon.png">
+</p>
 
 
-===================================================================================================
-lauetoolsnn
-===================================================================================================
+[![Conda](https://img.shields.io/conda/pn/bm32esrf/lauetoolsnn?color=green&label=supported%20platform)](https://anaconda.org/bm32esrf/lauetoolsnn)
+[![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/ravipurohit1991/lauetoolsnn?color=blue&label=Github%20tag)](https://github.com/ravipurohit1991/lauetoolsnn/)
+[![Doc-build-deployment](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/pages/pages-build-deployment)
+
+[![Python package](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/python-package.yml/badge.svg)](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/python-package.yml)
+[![Publish_PYPI](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_PYPI.yml/badge.svg)](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_PYPI.yml)
+[![PyPI](https://img.shields.io/pypi/v/lauetoolsnn)](https://pypi.python.org/pypi/lauetoolsnn/)
+[![PyPI pyversions](https://img.shields.io/pypi/pyversions/lauetoolsnn.svg)](https://pypi.python.org/pypi/lauetoolsnn/)
+
+
+[![Publish_Conda](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_conda.yml/badge.svg)](https://github.com/ravipurohit1991/lauetoolsnn/actions/workflows/publish_conda.yml)
+[![Anaconda-Server Badge](https://anaconda.org/bm32esrf/lauetoolsnn/badges/license.svg)](https://anaconda.org/bm32esrf/lauetoolsnn)
+[![Conda](https://img.shields.io/conda/v/bm32esrf/lauetoolsnn?style=flat-square)](https://conda.anaconda.org/bm32esrf/lauetoolsnn)
+[![Anaconda-Server Badge](https://anaconda.org/bm32esrf/lauetoolsnn/badges/installer/conda.svg)](https://conda.anaconda.org/bm32esrf/lauetoolsnn)
+
+
+[![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/ravipurohit1991/lauetoolsnn/issues)
+[![HitCount](https://hits.dwyl.com/ravipurohit1991/lauetoolsnn.svg?style=flat-square&show=unique)](http://hits.dwyl.com/ravipurohit1991/lauetoolsnn)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ravipurohit1991/lauetoolsnn/main)
+
+
+# lauetoolsnn
 An autonomous feed-forward neural network (FFNN) model to predict the HKL in single/multi-grain/multi-phase Laue patterns with high efficiency and accuracy is introduced. 
 
 Laue diffraction indexation (especially Laue images comprising of diffraction signal from several polycrystals/multi phase materials) can be a very tedious and CPU intensive process. To takle this, LaueNN or LauetoolsNN was developed employing the power of neural network to speed up a part of the indexation process. In the LaueNN_presentation (https://github.com/ravipurohit1991/lauetoolsnn/blob/main/presentations/LaueNN_presentation.pdf), several steps of Laue pattern indexation with classical approach is described. We have replaced the most CPU intensive step with the Neural Networks. The step where the Laue indices hkl of each spot os now determined with the Neural networks, alongside the spot hkl index, the neural network also predicts the Material that spot belongs to. This can be useful incase of Laue images comprising of diffraction signal from multi-phases. 
 LaueNN uses the existing modules of Lauetools to generate simulated Laue patterns. The whole workflow and the application of this tool is illustrated in this article (https://onlinelibrary.wiley.com/iucr/doi/10.1107/S1600576722004198)
 
-===================================================================================================
-Video tutorial
-===================================================================================================
+  
+### Video tutorial
+------------------------------
 - Video 1: Working with jupyter notebook scripts : https://cloud.esrf.fr/s/6q4DJfAn7K46BGN
 - Video 2: Working with lauetoolsnn GUI : https://cloud.esrf.fr/s/AeGow4CoqZRJiyx
 
-===================================================================================================
-Requirements: (latest version of each libraries accessed on 03/04/2022) 
-=================================================================================================== 
+
+### Requirements: (latest version of each libraries accessed on 03/04/2022) 
+------------------------------ 
 - PyQt5 (GUI)
 - matplotlib
 - Keras
@@ -64,37 +53,37 @@ Requirements: (latest version of each libraries accessed on 03/04/2022)
 - tqdm (required only for notebook scripts)
 - opencv (for LOG based peak search)
 
-===================================================================================================
-Installation
-===================================================================================================
+### Installation
+------------------------------
 Lauetoolsnn can be installed either via PYPI usiing the following command in terminal (this installs all dependencies automatically): 
+
 https://pypi.org/project/lauetoolsnn/
+
 https://anaconda.org/bm32esrf/lauetoolsnn
 
-   .. code:: python
-		pip install lauetoolsnn
-		
-		except for MacOS, please use 
-		
-		conda install -c bm32esrf lauetoolsnn -c conda-forge
+``` bash
+$ pip install lauetoolsnn
+
+$ except for MacOS, please use 
+$conda install -c bm32esrf lauetoolsnn -c conda-forge
+```
 
 or can be compiled and installed locally via the setup.py file. Download the Github repository and type the following in terminal. In this case, the dependencies has to be installed manually. The latest version of each dependency works as of (01/04/2022).
-
-	.. code:: python
-		python setup.py install
+``` bash
+$ python setup.py install
+```
 
 See procedure_usage_lauetoolsnn.pdf for installation and how to write the configuration file to be used with GUI.
 This project is also hosted on sourceforge.net https://lauetoolsnn.sourceforge.io
 
-===================================================================================================
-Documentation
-===================================================================================================
+### Documentation
+------------------------------
 Documentation (under construction) for lauetoolsnn/lauenn is found on the following webpage
 https://ravipurohit1991.github.io/lauetoolsnn/
 
-===================================================================================================
-Example case (a end to end case)
-===================================================================================================
+
+### Example case
+------------------------------
 Two example case studies are included in the lauetoolsnn\examples folder.
 Run the GUI by either launching directly from the terminal using the 'lauetoolsnn' command or by running it locally with python lauetoolsneuralnetwork.py command.
 
@@ -113,27 +102,21 @@ Jupyter notebook scripts are provided to run all the steps sequentially.
 
 The indexed orientation matrix is also written in ".ctf" format, which can then be opened with channel 5 Aztec or MTEX software to do post processing related to orientations analysis. MTEX post processing script is also included in the lauetoolsnn\util_script\MTEX_plot.m
 
-===================================================================================================
-Citation
-===================================================================================================
+## Citation
+------------------------------
 If you use this software, please cite it using the metadata available in the citation_bibtex.cff file in root.
 ``` bash
 Purushottam Raj Purohit, R. R. P., Tardif, S., Castelnau, O., Eymery, J., Guinebretiere, R., Robach, O., Ors, T. & Micha, J.-S. (2022). J. Appl. Cryst. 55, 737-750.
 ```
 
-===================================================================================================
-Known Issues
-===================================================================================================
+## Known Issues
+------------------------------
 So far, there is a issue with H5py and HDF5 version in the windows installation with conda. If error with H5py version mismatch exist after conda installation, please try "pip install lauetoolsnn" on windows as this should not have this problem. The other possibility is to install the H5py with pip before or after installing lauetoolsnn with conda.
 
-===================================================================================================
-Support
-===================================================================================================
+## Support
+------------------------------
 Do not hesitate to contact the development team at [purushot@esrf.fr](mailto:purushot@esrf.fr) or [micha@esrf.fr](mailto:micha@esrf.fr).
 
-===================================================================================================
-Maintainer(s)
-===================================================================================================
+## Maintainer(s)
+------------------------------
 * [Ravi PURUSHOTTAM](https://github.com/ravipurohit1991)
-
-
