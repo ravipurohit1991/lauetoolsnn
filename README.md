@@ -1,3 +1,8 @@
+<p align="center">
+  <img width="500" height="350" src="https://github.com/ravipurohit1991/lauetoolsnn/blob/main/icon.png">
+</p>
+
+
 [![Conda](https://img.shields.io/conda/pn/bm32esrf/lauetoolsnn?color=green&label=supported%20platform)](https://anaconda.org/bm32esrf/lauetoolsnn)
 [![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/ravipurohit1991/lauetoolsnn?color=blue&label=Github%20tag)](https://github.com/ravipurohit1991/lauetoolsnn/)
 
@@ -18,12 +23,9 @@
 [![HitCount](https://hits.dwyl.com/ravipurohit1991/lauetoolsnn.svg?style=flat-square&show=unique)](http://hits.dwyl.com/ravipurohit1991/lauetoolsnn)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ravipurohit1991/lauetoolsnn/main)
 
-<p align="center">
-  <img width="460" height="300" src="https://github.com/ravipurohit1991/lauetoolsnn/blob/main/icon.png">
-</p>
 
 # lauetoolsnn
-A feed-forward neural network (FFNN) model to predict the HKL in single/multi-grain/multi-phase Laue patterns with high efficiency and accuracy is introduced. 
+An autonomous feed-forward neural network (FFNN) model to predict the HKL in single/multi-grain/multi-phase Laue patterns with high efficiency and accuracy is introduced. 
 
   
 ### Video tutorial
