@@ -88,6 +88,12 @@ Jupyter notebook scripts are provided to run all the steps sequentially.
 
 The indexed orientation matrix is also written in ".ctf" format, which can then be opened with channel 5 Aztec or MTEX software to do post processing related to orientations analysis. MTEX post processing script is also included in the lauetoolsnn\util_script\MTEX_plot.m
 
+## citation
+If you use this software, please cite it using the metadata available in the citation.cff file in root.
+``` bash
+Purushottam Raj Purohit, R. R. P., Tardif, S., Castelnau, O., Eymery, J., Guinebretiere, R., Robach, O., Ors, T. & Micha, J.-S. (2022). J. Appl. Cryst. 55, 737-750.
+```
+
 ## Known Issues
 So far, there is a issue with H5py and HDF5 version in the windows installation with conda. If error with H5py version mismatch exist after conda installation, please try "pip install lauetoolsnn" on windows as this should not have this problem. The other possibility is to install the H5py with pip before or after installing lauetoolsnn with conda.
 
