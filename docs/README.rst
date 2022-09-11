@@ -73,12 +73,10 @@ https://anaconda.org/bm32esrf/lauetoolsnn
 
    .. code:: python
 		pip install lauetoolsnn
-		
-		except for MacOS, please use 
-		
+				
 		conda install -c bm32esrf lauetoolsnn -c conda-forge
 
-or can be compiled and installed locally via the setup.py file. Download the Github repository and type the following in terminal. In this case, the dependencies has to be installed manually. The latest version of each dependency works as of (01/04/2022).
+For macOS user, please use the conda installation to avoid build errors or can be compiled and installed locally via the setup.py file. Download the Github repository and type the following in terminal. In this case, the dependencies has to be installed manually. The latest version of each dependency works as of (01/04/2022).
 
 	.. code:: python
 		python setup.py install
@@ -117,7 +115,7 @@ The indexed orientation matrix is also written in ".ctf" format, which can then 
 Citation
 ===================================================================================================
 If you use this software, please cite it using the metadata available in the citation_bibtex.cff file in root.
-``` bash
+```
 Purushottam Raj Purohit, R. R. P., Tardif, S., Castelnau, O., Eymery, J., Guinebretiere, R., Robach, O., Ors, T. & Micha, J.-S. (2022). J. Appl. Cryst. 55, 737-750.
 ```
 

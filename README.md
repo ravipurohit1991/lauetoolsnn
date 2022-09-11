@@ -63,12 +63,10 @@ https://anaconda.org/bm32esrf/lauetoolsnn
 
 ``` bash
 $ pip install lauetoolsnn
-
-$ except for MacOS, please use 
+$ or
 $conda install -c bm32esrf lauetoolsnn -c conda-forge
 ```
-
-or can be compiled and installed locally via the setup.py file. Download the Github repository and type the following in terminal. In this case, the dependencies has to be installed manually. The latest version of each dependency works as of (01/04/2022).
+For macOS user, please use the conda installation to avoid build errors or can be compiled and installed locally via the setup.py file. Download the Github repository and type the following in terminal. In this case, the dependencies has to be installed manually. The latest version of each dependency works as of (01/04/2022).
 ``` bash
 $ python setup.py install
 ```
