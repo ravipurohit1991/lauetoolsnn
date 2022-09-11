@@ -31,28 +31,6 @@ Requirements: (latest version of each libraries accessed on 03/04/2022)
 - opencv (for LOG based peak search)
 
 ===================================================================================================
-Installation
-===================================================================================================
-Lauetoolsnn can be installed either via PYPI usiing the following command in terminal (this installs all dependencies automatically): 
-https://pypi.org/project/lauetoolsnn/
-https://anaconda.org/bm32esrf/lauetoolsnn
-
-   .. code:: python
-		pip install lauetoolsnn
-		
-		except for MacOS, please use 
-		
-		conda install -c bm32esrf lauetoolsnn -c conda-forge
-
-or can be compiled and installed locally via the setup.py file. Download the Github repository and type the following in terminal. In this case, the dependencies has to be installed manually. The latest version of each dependency works as of (01/04/2022).
-
-	.. code:: python
-		python setup.py install
-
-See procedure_usage_lauetoolsnn.pdf for installation and how to write the configuration file to be used with GUI.
-This project is also hosted on sourceforge.net https://lauetoolsnn.sourceforge.io
-
-===================================================================================================
 Documentation
 ===================================================================================================
 Documentation (under construction) for lauetoolsnn/lauenn is found on the following webpage
