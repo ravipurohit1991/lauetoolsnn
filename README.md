@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="500" height="350" src="https://github.com/ravipurohit1991/lauetoolsnn/blob/main/icon.png">
+  <img width="1000" height="350" src="https://github.com/ravipurohit1991/lauetoolsnn/blob/main/icon.png">
 </p>
 
 
