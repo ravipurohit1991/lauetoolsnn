@@ -1,25 +1,16 @@
-============
-Installation
-============
-Lauetoolsnn can be installed either via PYPI usiing the following command in terminal (this installs all dependencies automatically): 
-`PYPI repository <https://pypi.org/project/lauetoolsnn/>`_
-`Anaconda repository <https://anaconda.org/bm32esrf/lauetoolsnn>`_
+========================
+Jupyter-Notebooks
+========================
 
-.. code-block:: console
+In the `github repository <https://github.com/ravipurohit1991/lauetoolsnn/tree/main/lauetoolsnn/example_notebook_scripts>` of the project example notebook scripts are included to build a neural network model for any crystal symmetry as described in this article.  These notebook scripts aims to provide a general tutorial into the complete flow of LaueNN method. 
 
-   pip install lauetoolsnn
-   conda install -c bm32esrf lauetoolsnn -c conda-forge
+## Step 1: Generation of training dataset script: https://github.com/ravipurohit1991/lauetoolsnn/blob/main/lauetoolsnn/example_notebook_scripts/Step1_Generation_dataset_LaueNN.ipynb
+This notebook script provides information on how the output hkl class of the neural network is build given any crystallographic symmetry. Once defined, the simulated Laue patterns training dataset is generated and saved. 
 
+## Step 2: Training a neural network: https://github.com/ravipurohit1991/lauetoolsnn/blob/main/lauetoolsnn/example_notebook_scripts/Step2_Training_LaueNN.ipynb
+This notebook give introduction to defining a neural network architecture. Since the input and output classes are already generated. It is possible to define another neural network architecture also, for example a 1D CNN model that takes in same input and output. Additionally another script is provided that helps the users to play with different hyper parameters of the model architecture to optimize it specifically for their case (Sub-step 2a: Optimize hyper parameters of neural network architecture: https://github.com/ravipurohit1991/lauetoolsnn/blob/main/lauetoolsnn/example_notebook_scripts/Step2a_Optimize_architecture_LaueNN.ipynb)
 
-For macOS user, please use the Anaconda installation to avoid build errors or can be compiled and installed locally via the setup.py file. Download the Github repository and type the following in terminal. In this case, the dependencies has to be installed manually. The latest version of each dependency works as of (01/04/2022).
+## Step 3: verify the neural network prediction and indexation of Laue Patterns: https://github.com/ravipurohit1991/lauetoolsnn/blob/main/lauetoolsnn/example_notebook_scripts/Step3a_Generate_simulateLPforPrediction_LaueNN.ipynb
+This script describes the steps for predicting Laue spots hkl for a given input and also includes functions that reconstructs orientation matrix and indexes the crystal of the given dataset. A script to generate simulated Laue patterns for prediction is also provided. (Step 3a: Generation of simulated dataset for prediction: https://github.com/ravipurohit1991/lauetoolsnn/blob/main/lauetoolsnn/example_notebook_scripts/Step3_Prediction_LaueNN.ipynb)
+The scripts have default values that should allow any user to launch all the scripts in sequence to see the working flow of the method.
 
-.. code-block:: console
-
-   git clone https://github.com/ravipurohit1991/lauetoolsnn.git
-   cd luetoolsnn
-   python setup.py install
-
-Naturally, you can also install the lauetoolsnn package directly with the ANacondad Navigator. On the Anaconda Navigator, once you have created your own environment with ``python>=3.7``\; configure ``channels`` using the channels button and add ``conda-forge`` and ``bm32esrf``. After updating the index, you should have lauetoolsnn package accessible via the search bar. 
-
-See `Procedure for Config file generation <https://github.com/ravipurohit1991/lauetoolsnn/blob/main/presentations/procedure_usage_lauetoolsnn.pdf>`_ for installation and how to write the configuration file to be used with GUI.
-This project is also hosted on `sourceforge <https://lauetoolsnn.sourceforge.io>`_.

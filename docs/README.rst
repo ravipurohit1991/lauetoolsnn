@@ -29,13 +29,7 @@ Requirements: (latest version of each libraries accessed on 03/04/2022)
 - opencv (for LOG based peak search)
 
 
-Documentation
-----------------------------
-Documentation (under construction) for lauetoolsnn/lauenn is found on the following webpage
-https://ravipurohit1991.github.io/lauetoolsnn/
-
-
-Example case (a end to end case)
+Example case (end to end case)
 ------------------------------------------
 Two example case studies are included in the lauetoolsnn\examples folder.
 Run the GUI by either launching directly from the terminal using the 'lauetoolsnn' command or by running it locally with python lauetoolsneuralnetwork.py command.
@@ -58,24 +52,8 @@ The indexed orientation matrix is also written in ".ctf" format, which can then 
 
 Citation
 --------------
-If you use this software, please cite it using the metadata available in the citation_bibtex.cff file in root.
-`
-@article{PurushottamRajPurohit:nb5322,
-author = "Purushottam Raj Purohit, Ravi Raj Purohit and Tardif, Samuel and Castelnau, Olivier and Eymery, Joel and Guinebreti{\`{e}}re, Ren{\'{e}} and Robach, Odile and Ors, Taylan and Micha, Jean-S{\'{e}}bastien",
-title = "{LaueNN: neural-network-based {\it hkl} recognition of Laue spots and its application to polycrystalline materials}",
-journal = "Journal of Applied Crystallography",
-year = "2022",
-volume = "55",
-number = "4",
-pages = "737--750",
-month = "Aug",
-doi = {10.1107/S1600576722004198},
-url = {https://doi.org/10.1107/S1600576722004198},
-abstract = {A feed-forward neural-network-based model is presented to index, in real time, the diffraction spots recorded during synchrotron X-ray Laue microdiffraction experiments. Data dimensionality reduction is applied to extract physical 1D features from the 2D X-ray diffraction Laue images, thereby making it possible to train a neural network on the fly for any crystal system. The capabilities of the LaueNN model are illustrated through three examples: a two-phase nano{\-}structure, a textured high-symmetry specimen deformed {\it in situ} and a polycrystalline low-symmetry material. This work provides a novel way to efficiently index Laue spots in simple and complex recorded images in <1s, thereby opening up avenues for the realization of real-time analysis of synchrotron Laue diffraction data.},
-keywords = {synchrotron X-ray Laue microdiffraction, neural networks, hkl recognition},
-}
-`
-or
+If you use this software, please cite it using the metadata available in the `citation_bibtex <https://github.com/ravipurohit1991/lauetoolsnn/blob/main/citation_bibtex.cff>`_ file in root.
+
 `
 Purushottam Raj Purohit, R. R. P., Tardif, S., Castelnau, O., Eymery, J., Guinebretiere, R., Robach, O., Ors, T. & Micha, J.-S. (2022). J. Appl. Cryst. 55, 737-750.
 `
