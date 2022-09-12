@@ -1,27 +1,18 @@
-============
-Installation
-============
-Lauetoolsnn can be installed either via PYPI usiing the following command in terminal (this installs all dependencies automatically):
+====================================
+What are we predicting with LaueNN
+====================================
 
-`PYPI repository <https://pypi.org/project/lauetoolsnn/>`
+LauetoolsNN does not replace the complete Laue indexation workflow, it still relies heavily on the classical indexation approach to indexing Laue patterns (here using the `Lauetools module <https://pypi.org/project/LaueTools/>`_.)
+What has been replaced in the classical approach with LaueNN is to predict the Laue indices or hkl of each Laue spots in th eimage. By doing so, we can greatly accelerate the whole indexation process. 
 
-`Anaconda repository <https://anaconda.org/bm32esrf/lauetoolsnn>`
+The image below shows, that for a given Laue image recorded by a 2D detector (here the image comes from a GaN nanowire placed on Si substrate). The Laue image consist of contribution from both Silicon and GaN crystals. We have trained a neural network with GaN and Si material. The input image after some pre processing is fed to the Feed Forward Neural Network, and the network predicts 'hkl,Material,accuracy_of_prediction' for each spots. WIth this knowledge, the UB or orientation matrix of each phase can be reconstructed quickly, thereby indexing the crystals present in your Laue pattern. All this takes <1s on a standard laptop.
 
-.. code-block:: console
+In the classical approach, however, we have try lot of brute force to identify the Si crystal first, then remove the spots that comes from Si crystal from the Laue image and then again try to index the GaN crystal with brute force.
 
-   pip install lauetoolsnn
-   conda install -c bm32esrf lauetoolsnn -c conda-forge
+.. image:: lauenn.png
 
 
-For macOS user, please use the Anaconda installation to avoid build errors or can be compiled and installed locally via the setup.py file. Download the Github repository and type the following in terminal. In this case, the dependencies has to be installed manually. The latest version of each dependency works as of (01/04/2022).
+The Neural network architecture presented in the code is already a well optimized ones (as shown below). Several factors contributing to the loss minimization has been studies and are kept as default values in the model. This works very well from cubic to triclinic symmetry.
 
-.. code-block:: console
+.. image:: gridsearch.png
 
-   git clone https://github.com/ravipurohit1991/lauetoolsnn.git
-   cd luetoolsnn
-   python setup.py install
-
-Naturally, you can also install the lauetoolsnn package directly with the ANacondad Navigator. On the Anaconda Navigator, once you have created your own environment with ``python>=3.7``\; configure ``channels`` using the channels button and add ``conda-forge`` and ``bm32esrf``. After updating the index, you should have lauetoolsnn package accessible via the search bar. 
-
-See `Procedure for Config file generation <https://github.com/ravipurohit1991/lauetoolsnn/blob/main/presentations/procedure_usage_lauetoolsnn.pdf>`_ for installation and how to write the configuration file to be used with GUI.
-This project is also hosted on `sourceforge <https://lauetoolsnn.sourceforge.io>`_.
