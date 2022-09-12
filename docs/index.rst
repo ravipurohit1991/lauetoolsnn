@@ -1,4 +1,4 @@
-.. image:: images/icon.png
+.. image:: ./images/icon.png
 
 
 |Supported Platforms| |GitHub tag| |Doc-build-deployment|
