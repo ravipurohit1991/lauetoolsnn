@@ -3,8 +3,7 @@ lauetoolsnn
 ------------
 An autonomous feed-forward neural network (FFNN) model to predict the HKL in single/multi-grain/multi-phase Laue patterns with high efficiency and accuracy is introduced. 
 
-Laue diffraction indexation (especially Laue images comprising of diffraction signal from several polycrystals/multi phase materials) can be a very tedious and CPU intensive process. To takle this, LaueNN or LauetoolsNN was developed employing the power of neural network to speed up a part of the indexation process. In the LaueNN_presentation (https://github.com/ravipurohit1991/lauetoolsnn/blob/main/presentations/LaueNN_presentation.pdf), several steps of Laue pattern indexation with classical approach is described. We have replaced the most CPU intensive step with the Neural Networks. The step where the Laue indices hkl of each spot os now determined with the Neural networks, alongside the spot hkl index, the neural network also predicts the Material that spot belongs to. This can be useful incase of Laue images comprising of diffraction signal from multi-phases. 
-LaueNN uses the existing modules of Lauetools to generate simulated Laue patterns. The whole workflow and the application of this tool is illustrated in this article (https://onlinelibrary.wiley.com/iucr/doi/10.1107/S1600576722004198)
+Laue diffraction indexation (especially Laue images comprising of diffraction signal from several polycrystals/multi phase materials) can be a very tedious and CPU intensive process. To takle this, LaueNN or LauetoolsNN was developed employing the power of neural network to speed up a part of the indexation process. In the `LaueNN_presentation <https://github.com/ravipurohit1991/lauetoolsnn/blob/main/presentations/LaueNN_presentation.pdf>`_, several steps of Laue pattern indexation with classical approach is described. We have replaced the most CPU intensive step with the Neural Networks. The step where the Laue indices hkl of each spot os now determined with the Neural networks, alongside the spot hkl index, the neural network also predicts the Material that spot belongs to. This can be useful incase of Laue images comprising of diffraction signal from multi-phases. LaueNN uses the existing modules of Lauetools to generate simulated Laue patterns. The whole workflow and the application of this tool is illustrated in this article `LaueNN: neural-network-based hkl recognition of Laue spots and its application to polycrystalline materials <https://onlinelibrary.wiley.com/iucr/doi/10.1107/S1600576722004198>`_.
 
 
 Video tutorial
@@ -61,6 +60,23 @@ Citation
 --------------
 If you use this software, please cite it using the metadata available in the citation_bibtex.cff file in root.
 `
+@article{PurushottamRajPurohit:nb5322,
+author = "Purushottam Raj Purohit, Ravi Raj Purohit and Tardif, Samuel and Castelnau, Olivier and Eymery, Joel and Guinebreti{\`{e}}re, Ren{\'{e}} and Robach, Odile and Ors, Taylan and Micha, Jean-S{\'{e}}bastien",
+title = "{LaueNN: neural-network-based {\it hkl} recognition of Laue spots and its application to polycrystalline materials}",
+journal = "Journal of Applied Crystallography",
+year = "2022",
+volume = "55",
+number = "4",
+pages = "737--750",
+month = "Aug",
+doi = {10.1107/S1600576722004198},
+url = {https://doi.org/10.1107/S1600576722004198},
+abstract = {A feed-forward neural-network-based model is presented to index, in real time, the diffraction spots recorded during synchrotron X-ray Laue microdiffraction experiments. Data dimensionality reduction is applied to extract physical 1D features from the 2D X-ray diffraction Laue images, thereby making it possible to train a neural network on the fly for any crystal system. The capabilities of the LaueNN model are illustrated through three examples: a two-phase nano{\-}structure, a textured high-symmetry specimen deformed {\it in situ} and a polycrystalline low-symmetry material. This work provides a novel way to efficiently index Laue spots in simple and complex recorded images in <1s, thereby opening up avenues for the realization of real-time analysis of synchrotron Laue diffraction data.},
+keywords = {synchrotron X-ray Laue microdiffraction, neural networks, hkl recognition},
+}
+`
+or
+`
 Purushottam Raj Purohit, R. R. P., Tardif, S., Castelnau, O., Eymery, J., Guinebretiere, R., Robach, O., Ors, T. & Micha, J.-S. (2022). J. Appl. Cryst. 55, 737-750.
 `
 
@@ -77,7 +93,7 @@ Do not hesitate to contact the development team at purushot@esrf.fr or micha@esr
 
 Maintainer(s)
 --------------
-* Ravi PURUSHOTTAM(https://github.com/ravipurohit1991)
+* Ravi raj purohit PURUSHOTTAM RAJ PUROHIT (https://github.com/ravipurohit1991)
 
 
 License

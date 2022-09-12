@@ -82,7 +82,6 @@ Table of contents
    py_scripts/installation.rst
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contact:
 
-   AUTHORS.rst
+   usage
+   authors
