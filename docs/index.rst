@@ -1,4 +1,4 @@
-.. image:: icon.png
+.. image:: images/icon.png
 
 
 |Supported Platforms| |GitHub tag| |Doc-build-deployment|
@@ -48,20 +48,36 @@
 .. |Binder| image:: https://mybinder.org/badge_logo.svg
    :target: https://mybinder.org/v2/gh/ravipurohit1991/lauetoolsnn/main
 
-
-.. toctree::
-   :maxdepth: 2
-   :glob:
-
-   *
-
 .. include:: README.rst
 
 
-Indices and tables
-==================
+Table of contents
+=================
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+.. toctree::
+   :maxdepth: 2
+   :caption: Installation:
+
+   installation/installation.rst
+
+.. toctree::
+   :maxdepth: 2
+   :caption: LaueNN GUI:
+	
+   GUi_functions/config_file.rst
+   GUi_functions/installation.rst
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Jupyter Notebook:
+
+   ipynb_lauenn/installation.rst
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Python scripts:
+
+   py_scripts/installation.rst
 
