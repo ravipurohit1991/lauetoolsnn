@@ -56,6 +56,12 @@ Table of contents
 
 .. toctree::
    :maxdepth: 2
+   :caption: What exactly are we predicting:
+
+   idea_lauenn/installation.rst
+   
+.. toctree::
+   :maxdepth: 2
    :caption: Installation:
 
    installation/installation.rst
@@ -63,6 +69,7 @@ Table of contents
 .. toctree::
    :maxdepth: 2
    :caption: Usage of console functions:
+   
    usage
    
 .. toctree::
@@ -94,4 +101,5 @@ Table of contents
    
    
 .. toctree::
+
    authors
