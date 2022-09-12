@@ -79,7 +79,7 @@ This project is also hosted on sourceforge.net https://lauetoolsnn.sourceforge.i
 ### Documentation
 ------------------------------
 Documentation (under construction) for lauetoolsnn/lauenn is found on the following webpage
-https://ravipurohit1991.github.io/lauetoolsnn/
+https://lauetoolsnn.readthedocs.io/en/latest/index.html
 
 
 ### Example case
