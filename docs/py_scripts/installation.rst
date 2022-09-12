@@ -1,25 +1,25 @@
-============
-Installation
-============
-Lauetoolsnn can be installed either via PYPI usiing the following command in terminal (this installs all dependencies automatically): 
-`PYPI repository <https://pypi.org/project/lauetoolsnn/>`_
-`Anaconda repository <https://anaconda.org/bm32esrf/lauetoolsnn>`_
+========================
+Python scripts
+========================
+The python script, jupyter-notebooks and GUI deals only with maximum of two different material per model. In case if you need more than two material, please refer the `multi-material LaueNN code <https://lauetoolsnn.sourceforge.io>`_. The multi-material code can be used with 'N' material. It has been tested with N=5 different material.
 
-.. code-block:: console
+An example script to use LaueNN with python script is presented below.
 
-   pip install lauetoolsnn
-   conda install -c bm32esrf lauetoolsnn -c conda-forge
+There are three basic steps to launch the LaueNN module. Step 1 and Step 2 need to be run only once per material/case.
+
+#. 
+   First step involves defining the material directly in the input dictionary, this will create the training dataset and ground truth class of hkls to be used for Neural network training:
+
+.. literalinclude:: Step1_Generation_dataset_LaueNN.py
 
 
-For macOS user, please use the Anaconda installation to avoid build errors or can be compiled and installed locally via the setup.py file. Download the Github repository and type the following in terminal. In this case, the dependencies has to be installed manually. The latest version of each dependency works as of (01/04/2022).
+#. 
+   Second step involves training the neural network on the data generated in step 1:
 
-.. code-block:: console
+.. literalinclude:: Step2_Training_LaueNN.py
 
-   git clone https://github.com/ravipurohit1991/lauetoolsnn.git
-   cd luetoolsnn
-   python setup.py install
+#. 
+   Third step involves prediction and saving the results:
 
-Naturally, you can also install the lauetoolsnn package directly with the ANacondad Navigator. On the Anaconda Navigator, once you have created your own environment with ``python>=3.7``\; configure ``channels`` using the channels button and add ``conda-forge`` and ``bm32esrf``. After updating the index, you should have lauetoolsnn package accessible via the search bar. 
+.. literalinclude:: Step3_Prediction_LaueNN.py
 
-See `Procedure for Config file generation <https://github.com/ravipurohit1991/lauetoolsnn/blob/main/presentations/procedure_usage_lauetoolsnn.pdf>`_ for installation and how to write the configuration file to be used with GUI.
-This project is also hosted on `sourceforge <https://lauetoolsnn.sourceforge.io>`_.

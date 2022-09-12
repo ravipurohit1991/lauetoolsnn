@@ -1,11 +1,9 @@
 ============
 Installation
 ============
-Lauetoolsnn can be installed either via PYPI usiing the following command in terminal (this installs all dependencies automatically):
-
-`PYPI repository <https://pypi.org/project/lauetoolsnn/>`
-
-`Anaconda repository <https://anaconda.org/bm32esrf/lauetoolsnn>`
+Lauetoolsnn can be installed either via PYPI usiing the following command in terminal (this installs all dependencies automatically): 
+`PYPI repository <https://pypi.org/project/lauetoolsnn/>`_
+`Anaconda repository <https://anaconda.org/bm32esrf/lauetoolsnn>`_
 
 .. code-block:: console
 

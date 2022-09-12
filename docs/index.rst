@@ -62,6 +62,11 @@ Table of contents
 
 .. toctree::
    :maxdepth: 2
+   :caption: Usage of console functions:
+   usage
+   
+.. toctree::
+   :maxdepth: 2
    :caption: LaueNN GUI:
 	
    GUi_functions/config_file.rst
@@ -82,6 +87,11 @@ Table of contents
    py_scripts/installation.rst
 
 .. toctree::
+   :maxdepth: 2
+   :caption: Multi-mat LaueNN:
 
-   usage
+   multi_mat/installation.rst
+   
+   
+.. toctree::
    authors
