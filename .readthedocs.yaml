@@ -7,11 +7,6 @@ build:
     
 sphinx:
   fail_on_warning: true
-
-
-formats:
-  - pdf
-  - epub
   
 python:
   # Install our python package before building the docs
