@@ -5,14 +5,14 @@ Lauetoolsnn can be installed either via PYPI usiing the following command in ter
 `PYPI repository <https://pypi.org/project/lauetoolsnn/>`_
 `Anaconda repository <https://anaconda.org/bm32esrf/lauetoolsnn>`_
 
-.. code-block:: bash
+.. code-block:: python
   pip install lauetoolsnn
   conda install -c bm32esrf lauetoolsnn -c conda-forge
 
 
 For macOS user, please use the Anaconda installation to avoid build errors or can be compiled and installed locally via the setup.py file. Download the Github repository and type the following in terminal. In this case, the dependencies has to be installed manually. The latest version of each dependency works as of (01/04/2022).
 
-.. code-block:: bash
+.. code-block:: python
   git clone https://github.com/ravipurohit1991/lauetoolsnn.git
   cd luetoolsnn
   python setup.py install
