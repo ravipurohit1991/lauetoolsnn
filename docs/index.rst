@@ -1,11 +1,10 @@
-.. include:: ../README.rst
-
 .. toctree::
    :maxdepth: 2
    :glob:
 
    *
 
+.. include:: ../README.rst
 
 
 Indices and tables
