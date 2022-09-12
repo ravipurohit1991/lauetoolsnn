@@ -1,25 +1,31 @@
-============
-Installation
-============
-Lauetoolsnn can be installed either via PYPI usiing the following command in terminal (this installs all dependencies automatically): 
-`PYPI repository <https://pypi.org/project/lauetoolsnn/>`_
-`Anaconda repository <https://anaconda.org/bm32esrf/lauetoolsnn>`_
+========================
+Multi Mat LaueNN scripts
+========================
+In this repository we have included few scripts that will show the capability of the LaueNN to detect many phases (here 4 phases). The scripts can be modified to include more or less number of materials to detect. 
 
-.. code-block:: console
+An example script to use LaueNN with python script is presented below.
 
-   pip install lauetoolsnn
-   conda install -c bm32esrf lauetoolsnn -c conda-forge
+There are three basic steps to launch the LaueNN module. Step 1 and Step 2 need to be run only once per material/case.
+
+#. 
+   Generation of training dataset and training the neural network script::
+
+   .. literalinclude:: multi_mat_generation_training_LaueNN.py
 
 
-For macOS user, please use the Anaconda installation to avoid build errors or can be compiled and installed locally via the setup.py file. Download the Github repository and type the following in terminal. In this case, the dependencies has to be installed manually. The latest version of each dependency works as of (01/04/2022).
+#. 
+   Generate simulated Laue Image of multi-phase material:
 
-.. code-block:: console
+   .. literalinclude:: multi_mat_simulatedata_LaueNN.py
 
-   git clone https://github.com/ravipurohit1991/lauetoolsnn.git
-   cd luetoolsnn
-   python setup.py install
 
-Naturally, you can also install the lauetoolsnn package directly with the ANacondad Navigator. On the Anaconda Navigator, once you have created your own environment with ``python>=3.7``\; configure ``channels`` using the channels button and add ``conda-forge`` and ``bm32esrf``. After updating the index, you should have lauetoolsnn package accessible via the search bar. 
+#. 
+   verify the neural network prediction and indexation of multi-phase Laue Images:
 
-See `Procedure for Config file generation <https://github.com/ravipurohit1991/lauetoolsnn/blob/main/presentations/procedure_usage_lauetoolsnn.pdf>`_ for installation and how to write the configuration file to be used with GUI.
-This project is also hosted on `sourceforge <https://lauetoolsnn.sourceforge.io>`_.
+   .. literalinclude:: multi_mat_verifyPrediction_LaueNN.py
+
+
+#. 
+   Multi mat is also available with prediction window in GUI:
+
+   .. literalinclude:: multi_mat_Prediction_LaueNN_interfaceGUI.py

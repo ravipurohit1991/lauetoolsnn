@@ -10,17 +10,17 @@ There are three basic steps to launch the LaueNN module. Step 1 and Step 2 need 
 #. 
    First step involves defining the material directly in the input dictionary, this will create the training dataset and ground truth class of hkls to be used for Neural network training:
 
-.. literalinclude:: Step1_Generation_dataset_LaueNN.py
+   .. literalinclude:: Step1_Generation_dataset_LaueNN.py
 
 
 #. 
    Second step involves training the neural network on the data generated in step 1:
 
-.. literalinclude:: Step2_Training_LaueNN.py
+   .. literalinclude:: Step2_Training_LaueNN.py
 
 
 #. 
    Third step involves prediction and saving the results:
 
-.. literalinclude:: Step3_Prediction_LaueNN.py
+   .. literalinclude:: Step3_Prediction_LaueNN.py
 

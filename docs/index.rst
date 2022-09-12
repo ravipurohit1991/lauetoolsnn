@@ -98,8 +98,15 @@ Table of contents
    :caption: Multi-mat LaueNN:
 
    multi_mat/installation.rst
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Tutorial video:
    
+   video_demo/installation.rst
    
 .. toctree::
-
+   :maxdepth: 2
+   :caption: Contact:
+   
    authors
