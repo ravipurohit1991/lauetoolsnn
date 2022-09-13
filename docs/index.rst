@@ -117,6 +117,14 @@ Table of contents
    :caption: Tutorial video:
    
    video_demo/installation.rst
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Funding and Pubs:
+   
+   funding/installation.rst
+   pubs/installation.rst
    
    
 .. toctree::

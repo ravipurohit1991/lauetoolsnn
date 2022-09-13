@@ -120,6 +120,9 @@ So far, there is a issue with H5py and HDF5 version in the windows installation 
 ------------------------------
 Do not hesitate to contact the development team at [purushot@esrf.fr](mailto:purushot@esrf.fr) or [micha@esrf.fr](mailto:micha@esrf.fr).
 
+### Funding
+------------------------------
+This code was developed as a result of French-German project funded respectively by the ANR and DFG (HoTMiX project reference number ANR-19-CE09-0035-01): https://www.bam.de/Content/EN/Projects/HoTMiX/hotmix.html
 
 ### Maintainer(s)
 ------------------------------
