@@ -66,6 +66,7 @@ Table of contents
    :caption: Installation:
 
    installation/installation.rst
+   issues/installation.rst
 
 
 .. toctree::
