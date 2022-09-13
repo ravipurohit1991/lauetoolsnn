@@ -23,39 +23,11 @@ Requirements: (latest version of each libraries accessed on 03/04/2022)
 - opencv (for LOG based peak search)
 
 
-Example case (end to end case)
-------------------------------------------
-Two example case studies are included in the lauetoolsnn\examples folder.
-Run the GUI by either launching directly from the terminal using the 'lauetoolsnn' command or by running it locally with python lauetoolsneuralnetwork.py command.
-
-First step is to load the config.txt from the example folder, it sets all the values of the GUI to the case study.
-In the GUI: 
-- Step1: File --> load config . Select the config file from the example directory. 
-- Step1a: If config file is not available, one can set parameters in the configure parameters window directly.
-- Step2: Press the configure parameters button and press Accept button at the end (the values are loaded from the config file).
-- Step3: Press Generate Training dataset button. This will generate the training and validation dataset for neural network.
-- Step4: Press Train Neural network button. This will start the training process and once finished will save the trained model.
-- Step5: Press the Live prediction with IPF map to start the prediction on predefined experimental dataset. Example datafile is included in the examples folder.
-- Step6: Once analyzed, the results can be saved using the save results button.
-
-In addition, all the above mentioned steps can be done without the GUI and are detailed in the lauetoolsnn\example_notebook_scripts folder.
-Jupyter notebook scripts are provided to run all the steps sequentially.
-
-The indexed orientation matrix is also written in ".ctf" format, which can then be opened with channel 5 Aztec or MTEX software to do post processing related to orientations analysis. MTEX post processing script is also included in the lauetoolsnn\util_script\MTEX_plot.m
-
-
 Citation
 --------------
 If you use this software, please cite it using the metadata available in the `citation_bibtex <https://github.com/ravipurohit1991/lauetoolsnn/blob/main/citation_bibtex.cff>`_ file in root.
 
-`
-Purushottam Raj Purohit, R. R. P., Tardif, S., Castelnau, O., Eymery, J., Guinebretiere, R., Robach, O., Ors, T. & Micha, J.-S. (2022). J. Appl. Cryst. 55, 737-750.
-`
-
-
-Known Issues
---------------
-So far, there is a issue with H5py and HDF5 version in the windows installation with conda. If error with H5py version mismatch exist after conda installation, please try "pip install lauetoolsnn" on windows as this should not have this problem. The other possibility is to install the H5py with pip before or after installing lauetoolsnn with conda.
+``Purushottam Raj Purohit, R. R. P., Tardif, S., Castelnau, O., Eymery, J., Guinebretiere, R., Robach, O., Ors, T. & Micha, J.-S. (2022). J. Appl. Cryst. 55, 737-750.``
 
 
 Support

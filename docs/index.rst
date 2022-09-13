@@ -60,17 +60,20 @@ Table of contents
 
    idea_lauenn/installation.rst
    
+   
 .. toctree::
    :maxdepth: 2
    :caption: Installation:
 
    installation/installation.rst
 
+
 .. toctree::
    :maxdepth: 2
    :caption: Usage of console functions:
    
    usage
+   
    
 .. toctree::
    :maxdepth: 2
@@ -93,17 +96,27 @@ Table of contents
 
    py_scripts/installation.rst
 
+
 .. toctree::
    :maxdepth: 2
    :caption: Multi-mat LaueNN:
 
    multi_mat/installation.rst
 
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Additional scripts:
+   
+   pp_scripts/installation.rst
+   
+   
 .. toctree::
    :maxdepth: 2
    :caption: Tutorial video:
    
    video_demo/installation.rst
+   
    
 .. toctree::
    :maxdepth: 2

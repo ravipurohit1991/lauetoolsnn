@@ -8,7 +8,7 @@ An example script to use LaueNN with python script is presented below.
 There are three basic steps to launch the LaueNN module. Step 1 and Step 2 need to be run only once per material/case.
 
 #. 
-   Generation of training dataset and training the neural network script::
+   Generation of training dataset and training the neural network script:
 
    .. literalinclude:: multi_mat_generation_training_LaueNN.py
 
