@@ -345,19 +345,19 @@ ax[1].imshow(mask_binary, cmap='gray')
 plt.show()
 
 #%%
-N = 512
-thetas = np.linspace(start=0, stop=360, num=N, endpoint=False)
+# N = 512
+# thetas = np.linspace(start=0, stop=360, num=N, endpoint=False)
 
-classRound = np.zeros((N, L, L))
-classOval = np.zeros((N, L, L))
-classYOvalL = np.zeros((N, L, L))
-classYOvalR = np.zeros((N, L, L))
+# classRound = np.zeros((N, L, L))
+# classOval = np.zeros((N, L, L))
+# classYOvalL = np.zeros((N, L, L))
+# classYOvalR = np.zeros((N, L, L))
 
-for i, theta in enumerate(thetas):
-    classRound[i] = np.asarray(PILImage.fromarray(round_disc).rotate(theta))
-    classOval[i] = np.asarray(PILImage.fromarray(oval_disc).rotate(theta))
-    classYOvalL[i] = np.asarray(PILImage.fromarray(yoval_discL).rotate(theta))
-    classYOvalR[i] = np.asarray(PILImage.fromarray(yoval_discR).rotate(theta))
+# for i, theta in enumerate(thetas):
+#     classRound[i] = np.asarray(PILImage.fromarray(round_disc).rotate(theta))
+#     classOval[i] = np.asarray(PILImage.fromarray(oval_disc).rotate(theta))
+#     classYOvalL[i] = np.asarray(PILImage.fromarray(yoval_discL).rotate(theta))
+#     classYOvalR[i] = np.asarray(PILImage.fromarray(yoval_discR).rotate(theta))
     
     
     
