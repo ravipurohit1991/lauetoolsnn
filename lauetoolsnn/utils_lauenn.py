@@ -714,14 +714,14 @@ def generate_classHKL(n, rules, lattice_material, symmetry, material_, crystal=N
             # if i in list_appended and k in list_appended:
             #     continue
             if i != k and np.all(j == l):
-                # string0 = "HKL's "+ str(classhkl[i])+" and "+str(classhkl[k])+" have exactly the same angular distribution."
-                # if write_to_console !=None:
-                #     write_to_console(string0)
                 if keys_rmv[i] in list_remove or keys_rmv[k] in list_remove:
                     if write_to_console !=None:
-                        # write_to_console("list already added")     
+                        write_to_console("list already added")     
                         continue
                 else:
+                    string0 = "HKL's "+ str(classhkl[i])+" and "+str(classhkl[k])+" have exactly the same angular distribution."
+                    if write_to_console !=None:
+                        write_to_console(string0)
                     list_remove.append(keys_rmv[i])
                     ind_rmv.append(keys_rmv[i])
                     for ijk in hkl_all[keys_rmv[i]]['family']:
